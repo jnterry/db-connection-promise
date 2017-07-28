@@ -1,0 +1,32 @@
+{
+  "name"        : "any-db-q",
+  "version"     : "0.0.0",
+  "description" : "Wrapper for any-db npm module that converts it to use a Q promise interface",
+  "homepage"    : "https://github.com/jnterry/any-db-q#readme"
+  "author"      : "Jamie Terry (https://github.com/jnterry)",
+  "main"        : "any-db-q.js",
+  "license"     : "MIT",
+  "scripts" : {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository"  : {
+    "type" : "git",
+    "url"  : "git+https://github.com/jnterry/any-db-q.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jnterry/any-db-q/issues"
+  },
+  "keywords"    : [
+    "promise",
+    "sql",
+    "mysql",
+    "any-db",
+    "q"
+  ],
+  "dependencies": {
+	"q" : "1.5.0",
+  },
+  "peerDependencies": {
+	"any-db" : "2.2.0"
+  }
+}
