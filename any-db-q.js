@@ -74,26 +74,35 @@ function initializeConnection(options){
 	}
 	connection_url += '/' + options.database;
 
-	console.log("Connecting to: " + connection_url);
-
 	///////////////////////////////////////////
 	// Connect to the database
 	// :TODO: support pooled connection (based on values in options)
-	let any_db = require('any-db-' + options.protocol);
-	let connection = any_db.createConnection(connection_url);
 
-	return {
-		_any_db       : any_db,
-		_connection   : _promisfyConnection(connection),
+	let result = {};
 
-		getConnection : function(){
-			return Q(this._connection);
-		},
+	result._any_db = require('any-db-' + options.protocol);
 
-		releaseConnection : function(){
-			// no-op
-		}
-	};
+	result.getConnection = function(){
+		return Q.promise((resolve, reject) => {
+			result._any_db.createConnection(connection_url, (error, result) => {
+				if(error){
+					reject(error);
+				} else {
+					result._connection = _promisfyConnection(result);
+					result.getConnection = function(){
+						return result._connection;
+					}
+					resolve(result._connection);
+				}
+			});
+		});
+	}
+
+	result.releaseConnection = function (){
+		// no-op
+	}
+
+	return result;
 }
 
 module.exports = initializeConnection;
