@@ -1,0 +1,7 @@
+# Ignore Emacs Backup Files
+*#*#
+*.#*
+*~
+
+# Ignore node.js modules - these can be installed with npm install
+*node_modules/*
