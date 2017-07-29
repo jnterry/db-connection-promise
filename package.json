@@ -7,7 +7,7 @@
 	"main": "any-db-q.js",
 	"license": "MIT",
 	"scripts": {
-		"test": "./node_modules/.bin/mocha --reporter spec"
+		"test": "./node_modules/.bin/mocha ./test/all.js --reporter spec"
 	},
 	"repository": {
 		"type": "git",
