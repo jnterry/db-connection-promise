@@ -86,10 +86,13 @@ describe('AnyDbQ', () => {
 		});
 	});
 
-	if(process.env.ANY_DB_Q_MYSQL_PASSWORD &&
-	   process.env.ANY_DB_Q_MYSQL_DATABASE){
-		let pass    = process.env.ANY_DB_Q_MYSQL_PASSWORD;
-		let db_name = process.env.ANY_DB_Q_MYSQL_DATABASE;
+	if(process.env.ANY_DB_Q_TEST_MYSQL){
+
+		let db_password = process.env.ANY_DB_Q_TEST_MYSQL_PASSWORD;
+		if(db_password === undefined){ db_password = ''; }
+
+		let db_name = process.env.ANY_DB_Q_MYSQL_TEST_DATABASE;
+		if(db_name === undefined){ db_name = 'any_db_q_test'; }
 
 		//:TODO: support env vars for host, user, etc?
 
@@ -98,7 +101,7 @@ describe('AnyDbQ', () => {
 				return AnyDbQ({ adapter  : 'mysql',
 					            host     : 'localhost',
 					            user     : 'root',
-				                password : pass,
+				                password : db_password,
 				              })
 					.then((dbh) => {
 						return Q()
@@ -114,7 +117,7 @@ describe('AnyDbQ', () => {
 						return AnyDbQ({ adapter  : 'mysql',
 						                host     : 'localhost',
 						                user     : 'root',
-						                password : pass,
+						                password : db_password,
 						                database : db_name,
 						              });
 					};
@@ -128,7 +131,7 @@ describe('AnyDbQ', () => {
 						return AnyDbQ({ adapter  : 'mysql',
 						                host     : 'localhost',
 						                user     : 'root',
-						                password : pass,
+						                password : db_password,
 						                database : db_name,
 						              },
 						              { min : 1, max : 10}
