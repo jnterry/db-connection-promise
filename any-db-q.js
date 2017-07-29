@@ -58,7 +58,7 @@ function connect(connection_options, pool_params){
 			// Then create connection pool to the database
 
 			if(connection_options.adapter  === 'sqlite3' &&
-			   connection_options.hostname ==  null      &&
+			   connection_options.host     ==  null      &&
 			   connection_options.database ==  null      &&
 			   !connection_options.force_sqlite3_pool){
 
