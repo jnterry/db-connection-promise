@@ -89,10 +89,10 @@ describe('AnyDbQ', () => {
 	if(process.env.ANY_DB_Q_TEST_MYSQL){
 
 		let db_password = process.env.ANY_DB_Q_TEST_MYSQL_PASSWORD;
-		if(db_password === undefined){ db_password = ''; }
+		let db_name     = process.env.ANY_DB_Q_TEST_MYSQL_DATABASE;
 
-		let db_name = process.env.ANY_DB_Q_MYSQL_TEST_DATABASE;
-		if(db_name === undefined){ db_name = 'any_db_q_test'; }
+		if(db_password === undefined){ db_password = '';          }
+		if(db_name     === undefined){ db_name = 'any_db_q_test'; }
 
 		//:TODO: support env vars for host, user, etc?
 
