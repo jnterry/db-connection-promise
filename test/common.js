@@ -7,9 +7,15 @@
 /// \brief Contains common code for running tests
 ////////////////////////////////////////////////////////////////////////////
 
-
 global.expect = require('chai').expect;
-global.AnyDbQ = require('../any-db-q');
+
+let AnyDbQ = require('../any-db-q');
+
+global.getDbConnectionDefault = function(){
+	return AnyDbQ({ adapter: 'sqlite3'});
+};
+
+global.getDbConnection = getDbConnectionDefault;
 
 global.expectPromiseFails = function(done, promise){
 	return promise.then((results) => {
@@ -20,10 +26,7 @@ global.expectPromiseFails = function(done, promise){
 };
 
 global.initUserTable = function(){
-	return AnyDbQ({
-		'adapter'  : 'sqlite3',
-	})
-	.then((dbh) => {
+	return getDbConnection().then((dbh) => {
 		return dbh.query(
 			`CREATE TABLE user (
 				id       int          NOT NULL PRIMARY KEY,

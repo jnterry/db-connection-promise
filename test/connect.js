@@ -11,6 +11,8 @@
 
 require('./common.js');
 
+let AnyDbQ = require('../any-db-q');
+
 function isValidConnection(connection){
 	expect(connection).to.exist;
 	expect(connection.query).to.be.a('function');

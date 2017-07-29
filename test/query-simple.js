@@ -11,9 +11,6 @@
 
 require('./common.js');
 
-var expect = require('chai').expect;
-var AnyDbQ = require('../any-db-q');
-
 it('Init User Table functions correctly', () => {
 	return initUserTable().then((dbh) => {
 		return dbh.query('SELECT count(id) as count FROM user')
@@ -57,30 +54,24 @@ it('Create table and query', () => {
 
 it('Empty SQL query produces error', (done) => {
 	expectPromiseFails(done,
-		AnyDbQ({
-			'adapter'  : 'sqlite3',
-		}).then((dbh) => {
-			return dbh.query('');
-		})
-	);
+					   getDbConnection().then((dbh) => {
+						   return dbh.query('');
+					   })
+					  );
 });
 
 it('Bad SQL syntax produces error', (done) => {
 	expectPromiseFails(done,
-		AnyDbQ({
-			'adapter'  : 'sqlite3',
-		}).then((dbh) => {
-			return dbh.query(`a`);
-		})
-	);
+					   getDbConnection().then((dbh) => {
+						   return dbh.query(`a`);
+					   })
+					  );
 });
 
 it('Querying non-existent table produces error', (done) => {
 	expectPromiseFails(done,
-		AnyDbQ({
-			'adapter'  : 'sqlite3',
-		}).then((dbh) => {
-			return dbh.query(`SELECT * from user;`);
-		})
-	);
+					   getDbConnection().then((dbh) => {
+						   return dbh.query(`SELECT * from user;`);
+					   })
+					  );
 });
