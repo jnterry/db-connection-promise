@@ -9,25 +9,16 @@
 
 "use strict";
 
+require('./common.js');
+
 var expect = require('chai').expect;
 var AnyDbQ = require('../any-db-q');
+
 
 function isValidConnection(connection){
 	expect(connection).to.exist;
 	expect(connection.query).to.be.a('function');
 	return connection;
-}
-
-function connectFails(done, options){
-	AnyDbQ(options)
-		.then((connection) => {
-			done(new Error("Execution shouldn't get here; " +
-			               "a connection was returned")
-						);
-		}).fail((error) => {
-			expect(error).to.exist;
-			done();
-		});
 }
 
 it('Single connection returns valid connection', () => {
@@ -44,24 +35,24 @@ it('Pool connection returns valid connection', () => {
 });
 
 it('Invalid adapter value returns invalid connection', (done) => {
-	return connectFails(done, {'adapter' : 'fake'});
+	expectPromiseFails(done, AnyDbQ({'adapter' : 'fake'}));
 });
 
 it('Bad credentials return invalid connection', (done) => {
-	return connectFails(done, {
+	expectPromiseFails(done, AnyDbQ({
 		'adapter'   : 'mysql',
 		'host'      : 'localhost',
 		'user'      : 'X_BAD_USER_X',
 		'password'  : '_A_PASSWORD_'
-	});
+	}));
 });
 
 it('Bad port return invalid connection', (done) => {
-	return connectFails(done, {
+	expectPromiseFails(done, AnyDbQ({
 		'adapter'   : 'mysql',
 		'host'      : 'localhost',
 		'user'      : 'X_BAD_USER_X',
 		'password'  : '_A_PASSWORD_',
 		'port'      : '-1'
-	});
+	}));
 });

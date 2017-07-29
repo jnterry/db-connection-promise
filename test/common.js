@@ -1,23 +1,17 @@
 ////////////////////////////////////////////////////////////////////////////
 ///                       Part of any-db-q                               ///
 ////////////////////////////////////////////////////////////////////////////
-/// \file 02-simple-query.js
+/// \file common.js
 /// \author Jamie Terry
 /// \date 2017/07/29
-/// \brief Tests for running simple queries against the database
+/// \brief Contains common code for running tests
 ////////////////////////////////////////////////////////////////////////////
 
-"use strict";
 
-function importTest(name, path){
-	if(path == null){ path = name; }
-
-	describe(name, function(){
-		require("./" + path);
+global.expectPromiseFails = function(done, promise){
+	return promise.then((results) => {
+		done(new Error("Execution shouldn't reach here; no results expected", results));
+	}).fail((error) => {
+		done();
 	});
-}
-
-describe('AnyDbQ', () => {
-	importTest('connect');
-	importTest('query-simple');
-});
+};
