@@ -46,6 +46,7 @@ function connect(connection_options, pool_params){
 	return Q.promise((resolve, reject) => {
 
 		if(pool_params === undefined){
+			// Then create single connection to the database
 			result._any_db.createConnection(connection_options, (error, connection) => {
 				if(error){
 					reject(error);
@@ -54,6 +55,22 @@ function connect(connection_options, pool_params){
 				}
 			});
 		} else {
+			// Then create connection pool to the database
+
+			if(connection_options.adapter  === 'sqlite3' &&
+			   connection_options.hostname ==  null      &&
+			   connection_options.database ==  null      &&
+			   !connection_options.force_sqlite3_pool){
+
+				throw (
+					new Error("Attempted to connect to sqlite3 in memory database as a pool.\n" +
+					          "Each connection would have its own distinct in memory database, " +
+					          "between which no data would be shared.\n" +
+					          "This probably isn't what you intended. If it is, set " +
+					          "'connection_options.force_sqlite3_pool' to a truthy value.")
+				);
+			}
+
 			let connection = result._any_db.createPool(connection_options, pool_params);
 			resolve(_promisfyConnection(connection));
 		}
