@@ -7,7 +7,7 @@
 	"main": "any-db-q.js",
 	"license": "MIT",
 	"scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1"
+		"test": "./node_modules/.bin/mocha --reporter spec"
 	},
 	"repository": {
 		"type": "git",
@@ -24,18 +24,13 @@
 		"q"
 	],
 	"dependencies": {
-		"any-db": "^2.2.0",
-		"any-db-mysql": "^2.1.2",
-		"any-db-sqlite3": "^2.1.4",
-		"q": "1.5.0"
-	},
-	"testDependencies": {
-		"any-db-postgres": "2.1.5",
-		"any-db-mysql": "2.1.2",
-		"any-db-sqlite3": "2.1.4",
-		"any-db-mssql": "0.1.0"
-	},
-	"peerDependencies": {
+		"q": "1.5.0",
 		"any-db": "2.2.0"
-	}
+	},
+	"devDependencies": {
+		"any-db-sqlite3": "2.1.4",
+		"mocha": "3.4.2",
+		"chai": "4.1.0"
+	},
+	"peerDependencies": {}
 }
