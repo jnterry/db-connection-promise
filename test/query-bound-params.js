@@ -33,6 +33,8 @@ it('Create table and query', () => {
 					username : 'Mr User',
 					password : 'letmein',
 				});
+
+				dbh.close();
 			});
 	});
 });
@@ -60,6 +62,8 @@ it('Create table, insert many, and query', () => {
 					username : 'Tim',
 					password : 'password',
 				});
+
+				dbh.close();
 			});
 	});
 });
@@ -141,6 +145,8 @@ it('Can pass empty array as bound parameters when none are expected', () => {
 					id       :   1,
 					password : 'b',
 				});
+
+				dbh.close();
 			});
 	});
 });
