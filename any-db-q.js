@@ -12,7 +12,7 @@
 
 let Q = require('q');
 
-function _promisfyConnection(dbh) {
+function _promisfyConnection(dbh, connection_options) {
 	// Wraps a function which takes a variable number of arguments,
 	// then a call back of the form (error, result)
 	function wrapFuncParamsCallback(func){
@@ -33,8 +33,9 @@ function _promisfyConnection(dbh) {
 	}
 
 	return {
-		query : wrapFuncParamsCallback(dbh.query, arguments),
-		close : function(){}
+		query      : wrapFuncParamsCallback(dbh.query, arguments),
+		getAdapter : () => { return connection_options.adapter },
+		close      : function(){}
 	};
 }
 
@@ -51,7 +52,7 @@ function connect(connection_options, pool_params){
 				if(error){
 					reject(error);
 				} else {
-					resolve(_promisfyConnection(connection));
+					resolve(_promisfyConnection(connection, connection_options));
 				}
 			});
 		} else {
@@ -72,7 +73,7 @@ function connect(connection_options, pool_params){
 			}
 
 			let connection = result._any_db.createPool(connection_options, pool_params);
-			resolve(_promisfyConnection(connection));
+			resolve(_promisfyConnection(connection, connection_options));
 		}
 	});
 }
