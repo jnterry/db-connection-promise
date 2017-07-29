@@ -29,6 +29,7 @@
 	},
 	"devDependencies": {
 		"any-db-sqlite3": "2.1.4",
+		"any-db-mysql": "2.1.2",
 		"mocha": "3.4.2",
 		"chai": "4.1.0"
 	},
