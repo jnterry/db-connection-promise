@@ -6,18 +6,15 @@
 let AnyDbQ = require('../../any-db-q');
 let Q      = require('q');
 
-let connections = AnyDbQ({
-	'protocol' : 'mysql',
+AnyDbQ({
+	'adapter'  : 'mysql',
 	'host'     : 'localhost',
 	'user'     : 'root',
 	'password' : 'test123',
-	'database' : 'any_db_q_example_01'
-});
-
-connections.getConnection()
+	'database' : 'any_db_q_example_01',
+})
 	.then((dbh) => {
 		console.log("Successfully connected to database");
-
 
 		return dbh.query("SELECT * FROM email")
 			.then((results) => {
@@ -25,16 +22,23 @@ connections.getConnection()
 				console.log("Row count: " +  results.rowCount);
 				console.log("Rows:");
 				console.dir(results.rows);
-				return connections.releaseConnection(dbh);
 			})
 			.fail((err) => {
 				console.error("Failed to perform database operation");
 				console.dir(err);
-				exit(2);
-			});
+				process.exit(2);
+			})
+			.finally(() => {
+				console.log("Database operations completed");
+				dbh.close();
+			})
+			.done();
 	})
 	.fail((err) => {
 		console.error("Failed to connect to database");
 		console.dir(err);
-		exit(1);
-	});
+		process.exit(1);
+	})
+	.done(() => {
+		console.log("Promise finished");
+	});;

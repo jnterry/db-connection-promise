@@ -12,10 +12,7 @@
 
 let Q = require('q');
 
-module.exports = {};
-
 function _promisfyConnection(dbh) {
-
 	// Wraps a function which takes a variable number of arguments,
 	// then a call back of the form (error, result)
 	function wrapFuncParamsCallback(func){
@@ -37,72 +34,31 @@ function _promisfyConnection(dbh) {
 
 	return {
 		query : wrapFuncParamsCallback(dbh.query, arguments),
-
+		close : function(){}
 	};
 }
 
-function initializeConnection(options){
-	///////////////////////////////////////////
-	// Generated connection URL
-	if(options.protocol === undefined){
-		options.protocol = 'postgres';
-	}
-	if(['postgres', 'mysql', 'sqlite3', 'mssql']
-	   .indexOf(options.protocol) === -1){
-		throw "Unknown database protocol: " + options.protocol;
-	}
-
-	let connection_url = options.protocol + '://';
-
-	if(options.user     === undefined){ throw "Database username not specified"; }
-	if(options.password === undefined){ throw "Database password not specified"; }
-
-	connection_url += options.user + ':' + options.password + '@';
-
-	if(options.hostname === undefined){
-		options.hostname = 'localhost';
-	}
-
-	connection_url += options.hostname;
-
-	if(options.port !== undefined){
-		connection_url += ':' + options.port;
-	}
-
-	if(options.database === undefined){
-		throw "Database name not specified";
-	}
-	connection_url += '/' + options.database;
-
-	///////////////////////////////////////////
-	// Connect to the database
-	// :TODO: support pooled connection (based on values in options)
-
+function connect(connection_options, pool_params){
 	let result = {};
 
-	result._any_db = require('any-db-' + options.protocol);
+	result._any_db = require('any-db');
 
-	result.getConnection = function(){
-		return Q.promise((resolve, reject) => {
-			result._any_db.createConnection(connection_url, (error, result) => {
-				if(error){
-					reject(error);
-				} else {
-					result._connection = _promisfyConnection(result);
-					result.getConnection = function(){
-						return result._connection;
-					}
-					resolve(result._connection);
-				}
-			});
-		});
-	}
 
-	result.releaseConnection = function (){
-		// no-op
-	}
+	return Q.promise((resolve, reject) => {
+		function createCallback(error, connection){
+			if(error){
+				reject(error);
+			} else {
+				resolve(_promisfyConnection(connection));
+			}
+		}
 
-	return result;
+		if(pool_params === undefined){
+			result._any_db.createConnection(connection_options, createCallback);
+		} else {
+			result._any_db.createPool(connection_options, pool_params, createCallback);
+		}
+	});
 }
 
-module.exports = initializeConnection;
+module.exports = connect;
