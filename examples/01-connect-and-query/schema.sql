@@ -32,4 +32,24 @@ INSERT INTO email (subject, sender, content, is_spam) VALUES
 
       From Mr Scammer',
 	  1
-	);
+	),
+
+    ('Test Email 3',
+	 'me-is-3@example.com',
+	 'Content for three!',
+	 0
+	),
+
+    ('Verify your email',
+	 'company@example.com',
+	 'Click the link http://example.com/verify to verify your email address',
+	 0
+	),
+
+    ('Inheritance',
+	 'more_scam@example.com',
+	 'A relative died, here is some inheritance.
+
+      Just pay us a "transfer" fee :)',
+	  1
+	 );
