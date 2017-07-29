@@ -43,20 +43,19 @@ function connect(connection_options, pool_params){
 
 	result._any_db = require('any-db');
 
-
 	return Q.promise((resolve, reject) => {
-		function createCallback(error, connection){
-			if(error){
-				reject(error);
-			} else {
-				resolve(_promisfyConnection(connection));
-			}
-		}
 
 		if(pool_params === undefined){
-			result._any_db.createConnection(connection_options, createCallback);
+			result._any_db.createConnection(connection_options, (error, connection) => {
+				if(error){
+					reject(error);
+				} else {
+					resolve(_promisfyConnection(connection));
+				}
+			});
 		} else {
-			result._any_db.createPool(connection_options, pool_params, createCallback);
+			let connection = result._any_db.createPool(connection_options, pool_params);
+			resolve(_promisfyConnection(connection));
 		}
 	});
 }

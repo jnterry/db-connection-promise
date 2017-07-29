@@ -24,10 +24,8 @@ it('Single connection returns valid connection', () => {
 });
 
 it('Pool connection returns valid connection', () => {
-	return AnyDbQ({
-		'adapter' : 'sqlite3',
-		'pool'     : { min : 2, max : 32 }
-	}).then(isValidConnection);
+	return AnyDbQ({ 'adapter' : 'sqlite3', }, { min : 2, max : 32 })
+		.then(isValidConnection);
 });
 
 it('Invalid adapter value returns invalid connection', (done) => {
