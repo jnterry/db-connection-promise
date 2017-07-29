@@ -32,11 +32,24 @@ function _promisfyConnection(dbh, connection_options) {
 		};
 	}
 
-	return {
+	let result = {
 		query      : wrapFuncParamsCallback(dbh.query, arguments),
 		getAdapter : () => { return connection_options.adapter },
-		close      : function(){}
 	};
+
+	if(dbh.close === undefined){
+		result.close = function(){
+			// no-op
+		};
+	} else {
+		result.close = function(){
+			// cant just do = dbh.close since this would
+			// not be set correctly
+			dbh.close();
+		};
+	}
+
+	return result;
 }
 
 function connect(connection_options, pool_params){

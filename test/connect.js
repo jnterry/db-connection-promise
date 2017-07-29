@@ -22,7 +22,7 @@ function isValidConnection(connection){
 it('Single connection returns valid connection', () => {
 	return AnyDbQ({
 		'adapter'  : 'sqlite3',
-	}).then(isValidConnection);
+	}).then(isValidConnection).then((dbh) => { dbh.close() });
 });
 
 it("Can't connect to sqlite3 in memory database as pool without flag", (done) => {
@@ -37,7 +37,7 @@ it("Connect to sqlite3 in memory database as pool with flag returns valid connec
    () => {
 	   return AnyDbQ({ 'adapter' : 'sqlite3', force_sqlite3_pool: 1},
 	                 { min : 2, max : 32 }
-	                ).then(isValidConnection);
+	                ).then(isValidConnection).then((dbh) => { dbh.close() });
    }
   );
 
@@ -45,7 +45,7 @@ it("Connect to sqlite3 file database as pool without flag returns valid connecti
    () => {
 	   return AnyDbQ({ 'adapter' : 'sqlite3', database : 'test_db.sqlite3'},
 	                 { min : 2, max : 32 }
-	                ).then(isValidConnection);
+	                ).then(isValidConnection).then((dbh) => { dbh.close() });
    }
 );
 
