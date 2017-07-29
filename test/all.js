@@ -20,4 +20,5 @@ function importTest(name, path){
 describe('AnyDbQ', () => {
 	importTest('connect');
 	importTest('query-simple');
+	importTest('query-bound-params');
 });

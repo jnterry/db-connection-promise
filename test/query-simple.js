@@ -14,43 +14,44 @@ require('./common.js');
 var expect = require('chai').expect;
 var AnyDbQ = require('../any-db-q');
 
-it('Create table and query', () => {
-	return AnyDbQ({
-		'adapter'  : 'sqlite3',
-	}).then((dbh) => {
-		return dbh.query(
-			`CREATE TABLE user (
-				id       int          NOT NULL PRIMARY KEY,
-				username varchar(255),
-				password varchar(255)
-			);`
-		).then((results) => {
-			expect(results             ).does.exist;
-			expect(results.lastInsertId).to.deep.equal(undefined);
-			expect(results.rowCount    ).to.deep.equal(0);
-			expect(results.rows        ).to.deep.equal([]);
-
-			return dbh.query(`INSERT INTO user (id, username, password) VALUES
-			                      (1, 'bob', 'pass');`
-			                );
-		}).then((results) => {
-			expect(results             ).does.exist;
-			expect(results.lastInsertId).to.deep.equal(1);
-			expect(results.rowCount    ).to.deep.equal(1);
-			expect(results.rows        ).to.deep.equal([]);
-
-			return dbh.query(`SELECT * FROM user;`)
-		}).then((results) => {
-			expect(results             ).does.exist;
-			expect(results.lastInsertId).to.deep.equal(undefined);
-			expect(results.rowCount    ).to.deep.equal(1);
-			expect(results.rows        ).is.a('array').with.length(1);
-			expect(results.rows[0]     ).to.deep.equal({
-				id       : 1,
-				username : 'bob',
-				password : 'pass',
+it('Init User Table functions correctly', () => {
+	return initUserTable().then((dbh) => {
+		return dbh.query('SELECT count(id) as count FROM user')
+			.then((results) => {
+				expect(results             ).does.exist;
+				expect(results.lastInsertId).to.deep.equal(undefined);
+				expect(results.rowCount    ).to.deep.equal(1);
+				expect(results.rows        ).is.a('array').with.length(1);
+				expect(results.rows[0]     ).to.deep.equal({
+					count : 0,
+				});
 			});
-		});
+	});
+});
+
+it('Create table and query', () => {
+	return initUserTable().then((dbh) => {
+		return dbh.query(`INSERT INTO user (id, username, password) VALUES
+			                      (1, 'bob', 'pass');`
+		                )
+			.then((results) => {
+				expect(results             ).does.exist;
+				expect(results.lastInsertId).to.deep.equal(1);
+				expect(results.rowCount    ).to.deep.equal(1);
+				expect(results.rows        ).to.deep.equal([]);
+
+				return dbh.query(`SELECT * FROM user;`)
+			}).then((results) => {
+				expect(results             ).does.exist;
+				expect(results.lastInsertId).to.deep.equal(undefined);
+				expect(results.rowCount    ).to.deep.equal(1);
+				expect(results.rows        ).is.a('array').with.length(1);
+				expect(results.rows[0]     ).to.deep.equal({
+					id       : 1,
+					username : 'bob',
+					password : 'pass',
+				});
+			});
 	});
 });
 

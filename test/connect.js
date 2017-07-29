@@ -11,10 +11,6 @@
 
 require('./common.js');
 
-var expect = require('chai').expect;
-var AnyDbQ = require('../any-db-q');
-
-
 function isValidConnection(connection){
 	expect(connection).to.exist;
 	expect(connection.query).to.be.a('function');
