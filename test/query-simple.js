@@ -16,7 +16,7 @@ it('Init User Table functions correctly', () => {
 		return dbh.query('SELECT count(id) as count FROM user')
 			.then((results) => {
 				expect(results             ).does.exist;
-				expect(results.lastInsertId).to.deep.equal(undefined);
+				expect(results.lastInsertId).is.not.ok;
 				expect(results.rowCount    ).to.deep.equal(1);
 				expect(results.rows        ).is.a('array').with.length(1);
 				expect(results.rows[0]     ).to.deep.equal({
@@ -33,6 +33,31 @@ it('Create table and query', () => {
 		                )
 			.then((results) => {
 				expect(results             ).does.exist;
+				expect(results.rowCount    ).to.deep.equal(1);
+				expect(results.rows        ).to.deep.equal([]);
+
+				return dbh.query(`SELECT * FROM user;`)
+			}).then((results) => {
+				expect(results             ).does.exist;
+				expect(results.lastInsertId).is.not.ok;
+				expect(results.rowCount    ).to.deep.equal(1);
+				expect(results.rows        ).is.a('array').with.length(1);
+				expect(results.rows[0]     ).to.deep.equal({
+					id       : 1,
+					username : 'bob',
+					password : 'pass',
+				});
+			});
+	});
+});
+
+it('Create table and query relying on AUTO_INCREMENT', () => {
+	return initUserTable().then((dbh) => {
+		return dbh.query(`INSERT INTO user (username, password) VALUES
+			                      ('bob', 'pass');`
+		                )
+			.then((results) => {
+				expect(results             ).does.exist;
 				expect(results.lastInsertId).to.deep.equal(1);
 				expect(results.rowCount    ).to.deep.equal(1);
 				expect(results.rows        ).to.deep.equal([]);
@@ -40,7 +65,7 @@ it('Create table and query', () => {
 				return dbh.query(`SELECT * FROM user;`)
 			}).then((results) => {
 				expect(results             ).does.exist;
-				expect(results.lastInsertId).to.deep.equal(undefined);
+				expect(results.lastInsertId).is.not.ok;
 				expect(results.rowCount    ).to.deep.equal(1);
 				expect(results.rows        ).is.a('array').with.length(1);
 				expect(results.rows[0]     ).to.deep.equal({

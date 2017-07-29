@@ -12,6 +12,7 @@
 let fs         = require('fs');
 let AnyDbQ     = require('../any-db-q');
 let require_nc = require('require-nocache')(module);
+let Q          = require('q');
 
 /////////////////////////////////////////////////////////////////////
 /// \brief Helper function which imports a file containing a test suite
@@ -84,4 +85,58 @@ describe('AnyDbQ', () => {
 			runAllStandardDbTests();
 		});
 	});
+
+	if(process.env.ANY_DB_Q_MYSQL_PASSWORD &&
+	   process.env.ANY_DB_Q_MYSQL_DATABASE){
+		let pass    = process.env.ANY_DB_Q_MYSQL_PASSWORD;
+		let db_name = process.env.ANY_DB_Q_MYSQL_DATABASE;
+
+		//:TODO: support env vars for host, user, etc?
+
+		describe('MYSQL', () => {
+			beforeEach(() => {
+				return AnyDbQ({ adapter  : 'mysql',
+					            host     : 'localhost',
+					            user     : 'root',
+				                password : pass,
+				              })
+					.then((dbh) => {
+						return Q()
+							.then(() => { return dbh.query('DROP DATABASE IF EXISTS ' + db_name + ';'); })
+							.then(() => { return dbh.query('CREATE DATABASE ' + db_name); })
+							.then(() => { return dbh.query('USE ' + db_name); });
+					});
+			});
+
+			describe('STANDALONE', () => {
+				before(() => {
+					global.getDbConnection = function(){
+						return AnyDbQ({ adapter  : 'mysql',
+						                host     : 'localhost',
+						                user     : 'root',
+						                password : pass,
+						                database : db_name,
+						              });
+					};
+				});
+				runAllStandardDbTests();
+			});
+
+			describe('POOL', () => {
+				before(() => {
+					global.getDbConnection = function(){
+						return AnyDbQ({ adapter  : 'mysql',
+						                host     : 'localhost',
+						                user     : 'root',
+						                password : pass,
+						                database : db_name,
+						              },
+						              { min : 1, max : 10}
+						             );
+					};
+				});
+				runAllStandardDbTests();
+			});
+		});
+	}
 });

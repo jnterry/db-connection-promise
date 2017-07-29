@@ -44,15 +44,23 @@ global.expectPromiseFails = function(done, promise){
 /////////////////////////////////////////////////////////////////////
 global.initUserTable = function(){
 	return getDbConnection().then((dbh) => {
+		let autoincrement_word = '';
+		switch(dbh.getAdapter()){
+		case 'mysql':
+			autoincrement_word = 'AUTO_INCREMENT';
+			break;
+		case 'sqlite3':
+			break;
+		}
 		return dbh.query(
 			`CREATE TABLE user (
-				id       int          NOT NULL PRIMARY KEY,
-				username varchar(255) NOT NULL,
+				id       INTEGER      PRIMARY KEY ` + autoincrement_word + ',' +
+			`   username varchar(255) NOT NULL,
 				password varchar(255) NOT NULL
 			);`
 		).then((results) => {
 			expect(results             ).does.exist;
-			expect(results.lastInsertId).to.deep.equal(undefined);
+			expect(results.lastInsertId).is.not.ok;
 			expect(results.rowCount    ).to.deep.equal(0);
 			expect(results.rows        ).to.deep.equal([]);
 
