@@ -11,12 +11,26 @@ global.expect = require('chai').expect;
 
 let AnyDbQ = require('../any-db-q');
 
-global.getDbConnectionDefault = function(){
-	return AnyDbQ({ adapter: 'sqlite3'});
-};
 
-global.getDbConnection = getDbConnectionDefault;
+////////////////////////////////////////////////////////////////////////////
+// Test suite files obtain a database connection using getDbConnection,
+// if it hasn't been set by someone else provide a simple default
+// (in memory sqlite3 non-pooled connection)
+// This allows the test suite files to be ran independently and still
+// get a DB connection, but also for them to be ran as a part of all.js
+// which sets getDbConnection to test more complex configurations
+if(global.getDbConnecion === undefined){
+	global.getDbConnection = function(){
+		return AnyDbQ({ adapter: 'sqlite3'});
+	};
+}
 
+/////////////////////////////////////////////////////////////////////
+/// \brief Helper function which defines a test which only passes if
+/// a promise is rejected
+/// \param done    The `done` callback provided by it()
+/// \param promise The promise which should be rejected
+/////////////////////////////////////////////////////////////////////
 global.expectPromiseFails = function(done, promise){
 	return promise.then((results) => {
 		done(new Error("Execution shouldn't reach here; expected failure", results));
@@ -25,6 +39,9 @@ global.expectPromiseFails = function(done, promise){
 	});
 };
 
+/////////////////////////////////////////////////////////////////////
+/// \brief Helper function which sets up an empty 'users' table
+/////////////////////////////////////////////////////////////////////
 global.initUserTable = function(){
 	return getDbConnection().then((dbh) => {
 		return dbh.query(
@@ -42,4 +59,4 @@ global.initUserTable = function(){
 			return dbh; // make dbh accessible to calling code
 		});
 	});
-}
+};
