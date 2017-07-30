@@ -67,3 +67,31 @@ global.initUserTable = function(){
 		});
 	});
 };
+
+global.initUserTableWithUser = function(user){
+	if(user === undefined){
+		user = { id: 1, username : 'Bob', password: 'password' };
+	}
+
+	return initUserTable()
+		.then((dbh) => {
+			return dbh.query(`INSERT INTO user VALUES (?,?,?)`,
+			                 [user.id, user.username, user.password])
+				.then((results) => {
+					expect(results         ).does.exist;
+					expect(results.rowCount).is.deep.equal(1);
+					expect(results.rows    ).is.deep.equal([]);
+
+					return dbh.query('SELECT * FROM user');
+				})
+				.then((results) => {
+					expect(results             ).does.exist;
+					expect(results.lastInsertId).is.not.ok;
+					expect(results.rowCount    ).is.deep.equal(1);
+					expect(results.rows[0]     ).is.deep.equal(user);
+
+					return dbh; // make dbh accessible to calling code
+				});
+		});
+
+};

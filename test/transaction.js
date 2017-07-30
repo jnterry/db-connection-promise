@@ -94,3 +94,75 @@ it('Insert in transaction and rollback', () => {
 		});
 	});
 });
+
+it('Nested Transactions - Commit All', () => {
+	return initUserTableWithUser({ id: 9, username: 'admin', password: 'root'}).then((dbh) => {
+		return dbh.transaction((dbh) => {
+			return dbh.query(`UPDATE user SET username = 'me' WHERE id = 9`)
+				.then((results) => {
+					return dbh.transaction((dbh) => {
+						return dbh.query((`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`));
+					});
+				});
+		}).then(() => {
+			// By now both transactions should have been committed
+
+			return dbh.query(`SELECT * FROM user ORDER BY id ASC`)
+				.then((results) => {
+					expect(results             ).does.exist;
+					expect(results.lastInsertId).is.not.ok;
+					expect(results.rowCount    ).to.deep.equal(2);
+					expect(results.rows[0]     ).to.deep.equal({ id: 5, username: 'a',  password: 'b'   });
+					expect(results.rows[1]     ).to.deep.equal({ id: 9, username: 'me', password: 'root'});
+				});
+		});
+	});
+});
+
+it('Nested Transactions - Inner Rollback', () => {
+	return initUserTableWithUser({ id: 9, username: 'admin', password: 'root'}).then((dbh) => {
+		return dbh.transaction((dbh) => {
+			return dbh.query(`UPDATE user SET username = 'me' WHERE id = 9`)
+				.then((results) => {
+					return dbh.transaction((dbh) => {
+						return dbh.query((`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`))
+							.then(() => { throw "A nasty error :o"; });
+					});
+				});
+		}).then(() => {
+			// By now both transactions should have been committed
+
+			return dbh.query(`SELECT * FROM user ORDER BY id ASC`)
+				.then((results) => {
+					expect(results             ).does.exist;
+					expect(results.lastInsertId).is.not.ok;
+					expect(results.rowCount    ).to.deep.equal(1);
+					expect(results.rows[0]     ).to.deep.equal({ id: 9, username: 'me', password: 'root'});
+				});
+		});
+	});
+});
+
+it('Nested Transactions - Outer Rollback', () => {
+	return initUserTableWithUser({ id: 9, username: 'admin', password: 'root'}).then((dbh) => {
+		return dbh.transaction((dbh) => {
+			return dbh.query(`UPDATE user SET username = 'me' WHERE id = 9`)
+				.then((results) => {
+					return dbh.transaction((dbh) => {
+						return dbh.query((`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`));
+					});
+				}).then(() => { throw "A nasty error :o"; });
+		}).then(() => {
+			// By now both transactions should have been committed
+
+			return dbh.query(`SELECT * FROM user ORDER BY id ASC`)
+				.then((results) => {
+					console.dir(results);
+					expect(results             ).does.exist;
+					expect(results.lastInsertId).is.not.ok;
+					expect(results.rowCount    ).to.deep.equal(1);
+					expect(results.rows[0]     ).to.deep.equal({ id: 9, username: 'admin', password: 'root'});
+				});
+		});
+	});
+});
