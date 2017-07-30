@@ -33,8 +33,12 @@ function _wrapFuncParamsCallback(dbh, func){
 	};
 }
 
-function _doOpsInTransaction(dbh, connection_options){
-	return function(operations){
+/////////////////////////////////////////////////////////////////////
+/// \brief Begins a transaction and returns promise that resolves to
+/// transaction object
+/////////////////////////////////////////////////////////////////////
+function _beginPromised(dbh, connection_options){
+	return function(){
 		let defer = Q.defer();
 		begin_tx(dbh._connection, { autoRollback: false }, (err, tx) => {
 			if(err){ defer.reject(err); return; }
@@ -47,16 +51,26 @@ function _doOpsInTransaction(dbh, connection_options){
 			defer.resolve(result);
 		});
 
-		return defer.promise
-			.then((dbh) => {
-				return operations(dbh)
-					.then(() => {
-						return dbh.commit();
-					})
-					.fail((err) => {
-						return dbh.rollback();
-					});
-			});
+		return defer.promise;
+	};
+}
+
+/////////////////////////////////////////////////////////////////////
+/// \brief Performs some set of operations inside a transaction
+/// which is automatically committed unless promise is rejected,
+/// in which case it is rolled back
+/////////////////////////////////////////////////////////////////////
+function _doOpsInTransaction(dbh){
+	return function(operations){
+		return dbh.begin().then((dbh) => {
+			return operations(dbh)
+				.then(() => {
+					return dbh.commit();
+				})
+				.fail((err) => {
+					return dbh.rollback();
+				});
+		});
 	};
 }
 
@@ -67,6 +81,7 @@ function _promisfyConnection(dbh, connection_options) {
 		getAdapter  : () => { return connection_options.adapter; },
 	};
 
+	result.begin       = _beginPromised(result, connection_options);
 	result.transaction = _doOpsInTransaction(result, connection_options);
 
 	if(dbh.close === undefined){
