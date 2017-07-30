@@ -88,8 +88,7 @@ describe('AnyDbQ', () => {
 		});
 	});
 
-	if(process.env.ANY_DB_Q_TEST_MYSQL){
-
+	if(process.env.ANY_DB_Q_TEST_MYSQL == true){
 		let db_password = process.env.ANY_DB_Q_TEST_MYSQL_PASSWORD;
 		let db_name     = process.env.ANY_DB_Q_TEST_MYSQL_DATABASE;
 
