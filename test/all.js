@@ -49,7 +49,6 @@ describe('AnyDbQ', () => {
 		runAllStandardDbTests();
 	});
 
-	/*
 	describe('SQLITE3 FILE', () => {
 		const DB_FILENAME = 'test_db.sqlite3';
 
@@ -87,7 +86,6 @@ describe('AnyDbQ', () => {
 			runAllStandardDbTests();
 		});
 	});
-	*/
 
 	if(process.env.ANY_DB_Q_TEST_MYSQL){
 

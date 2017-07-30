@@ -157,7 +157,6 @@ it('Nested Transactions - Outer Rollback', () => {
 
 			return dbh.query(`SELECT * FROM user ORDER BY id ASC`)
 				.then((results) => {
-					console.dir(results);
 					expect(results             ).does.exist;
 					expect(results.lastInsertId).is.not.ok;
 					expect(results.rowCount    ).to.deep.equal(1);
