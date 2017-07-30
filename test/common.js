@@ -11,7 +11,6 @@ global.expect = require('chai').expect;
 
 let AnyDbQ = require('../any-db-q');
 
-
 ////////////////////////////////////////////////////////////////////////////
 // Test suite files obtain a database connection using getDbConnection,
 // if it hasn't been set by someone else provide a simple default

@@ -11,6 +11,7 @@
 "use strict";
 
 let Q        = require('q');
+Q.longStackSupport = true;
 let begin_tx = require('any-db-transaction');
 
 // Wraps a function which takes a variable number of arguments,
@@ -20,7 +21,7 @@ function _wrapFuncParamsCallback(dbh, func){
 		let args = arguments; // capture arguments to function
 
 		return Q.promise((resolve, reject) => {
-			// Calll the function with:
+			// Call the function with:
 			// - dbh as 'this'
 			// - spread args as the first n arguments
 			// - a callback as the last parameter
@@ -32,34 +33,44 @@ function _wrapFuncParamsCallback(dbh, func){
 	};
 }
 
-function _beginTxPromise(dbh, connection_options){
-	return function(){
-		return Q.promise((resolve, reject) => {
-			begin_tx(dbh, (err, tx) => {
-				if(err){ reject(err); return; }
+function _doOpsInTransaction(dbh, connection_options){
+	return function(operations){
+		let defer = Q.defer();
+		begin_tx(dbh._connection, { autoRollback: false }, (err, tx) => {
+			if(err){ defer.reject(err); return; }
 
-				tx.on('error', (err) => { reject(err); });
+			let result = (_promisfyConnection(tx, connection_options));
 
-				let result = _promisfyConnection(tx, connection_options);
+			result.commit   = () => { return tx.commit();   };
+			result.rollback = () => { return tx.rollback(); };
 
-				result.commit   = () => { tx.commit()  ; };
-				result.rollback = () => { tx.rollback(); };
-
-				resolve(result);
-			});
+			defer.resolve(result);
 		});
+
+		return defer.promise
+			.then((dbh) => {
+				return operations(dbh)
+					.then(() => {
+						return dbh.commit();
+					})
+					.fail((err) => {
+						return dbh.rollback();
+					});
+			});
 	};
 }
 
 function _promisfyConnection(dbh, connection_options) {
 	let result = {
-		query      : _wrapFuncParamsCallback(dbh, dbh.query),
-		getAdapter : () => { return connection_options.adapter; },
-		begin      : _beginTxPromise(dbh),
+		_connection : dbh,
+		query       : _wrapFuncParamsCallback(dbh, dbh.query),
+		getAdapter  : () => { return connection_options.adapter; },
 	};
 
+	result.transaction = _doOpsInTransaction(result, connection_options);
+
 	if(dbh.close === undefined){
-		result.close = function(){} // no-op
+		result.close = function(){}; // no-op
 	} else {
 		result.close = function(){
 			// cant just do = dbh.close since 'this.' inside
