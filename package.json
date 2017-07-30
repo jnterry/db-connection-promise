@@ -31,7 +31,6 @@
 	"devDependencies": {
 		"any-db-mysql": "2.1.2",
 		"any-db-sqlite3": "2.1.4",
-		"any-db-postgres": "2.1.5",
 		"chai": "4.1.0",
 		"coveralls": "2.13.1",
 		"istanbul": "0.4.5",
