@@ -32,7 +32,8 @@ function importTest(name, path){
 function runAllStandardDbTests(){
 	importTest('query-simple');
 	importTest('query-bound-params');
-	importTest('transaction');
+	importTest('transaction-explict');
+	importTest('transaction-wrapper');
 }
 
 describe('AnyDbQ', () => {

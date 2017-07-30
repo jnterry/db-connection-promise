@@ -1,10 +1,11 @@
 ////////////////////////////////////////////////////////////////////////////
 ///                       Part of any-db-q                               ///
 ////////////////////////////////////////////////////////////////////////////
-/// \file transaction.js
+/// \file transaction-wrapper.js
 /// \author Jamie Terry
 /// \date 2017/07/29
-/// \brief Contains tests for database transactions
+/// \brief Contains tests for database transactions using explicit
+/// begin/commit/rollback interface
 ////////////////////////////////////////////////////////////////////////////
 
 "use strict";
@@ -13,8 +14,8 @@ require('./common.js');
 
 it('Insert in transaction and commit', () => {
 	return initUserTable().then((dbh) => {
-		return dbh.transaction((dbh) => {
-			return dbh.query(`INSERT INTO user (id, username, password) VALUES
+		return dbh.begin().then((tx) => {
+			return tx.query(`INSERT INTO user (id, username, password) VALUES
 			                      (1, 'bob', 'pass');`
 			                )
 				.then((results) => {
@@ -22,7 +23,7 @@ it('Insert in transaction and commit', () => {
 					expect(results.rowCount    ).to.deep.equal(1);
 					expect(results.rows        ).to.deep.equal([]);
 
-					return dbh.query(`SELECT * FROM user;`)
+					return tx.query(`SELECT * FROM user;`)
 				}).then((results) => {
 					// Check data is visible within the transaction
 					expect(results             ).does.exist;
@@ -34,6 +35,8 @@ it('Insert in transaction and commit', () => {
 						username : 'bob',
 						password : 'pass',
 					});
+
+					return tx.commit();
 				});
 		}).then(() => {
 			return dbh.query(`SELECT * FROM user;`);
@@ -56,8 +59,8 @@ it('Insert in transaction and commit', () => {
 
 it('Insert in transaction and rollback', () => {
 	return initUserTable().then((dbh) => {
-		return dbh.transaction((dbh) => {
-			return dbh.query(`INSERT INTO user (id, username, password) VALUES
+		return dbh.begin().then((tx) => {
+			return tx.query(`INSERT INTO user (id, username, password) VALUES
 			                      (1, 'bob', 'pass');`
 			                )
 				.then((results) => {
@@ -65,7 +68,7 @@ it('Insert in transaction and rollback', () => {
 					expect(results.rowCount    ).to.deep.equal(1);
 					expect(results.rows        ).to.deep.equal([]);
 
-					return dbh.query(`SELECT * FROM user;`)
+					return tx.query(`SELECT * FROM user;`)
 				}).then((results) => {
 
 					// Check data is visible within the transaction
@@ -79,14 +82,11 @@ it('Insert in transaction and rollback', () => {
 						password : 'pass',
 					});
 
-					throw "A bad thing happened";
+					tx.rollback();
 				});
 		}).then(() => {
 			return dbh.query(`SELECT * FROM user;`);
-		}).then((results) => {
-			// No error should have occurred within transaction, so
-			// results should have been commited and be visable outside
-			// the transaction
+			// tx was rolled back, so should be no data
 			expect(results             ).does.exist;
 			expect(results.lastInsertId).is.not.ok;
 			expect(results.rowCount    ).to.deep.equal(0);
@@ -97,13 +97,14 @@ it('Insert in transaction and rollback', () => {
 
 it('Nested Transactions - Commit All', () => {
 	return initUserTableWithUser({ id: 9, username: 'admin', password: 'root'}).then((dbh) => {
-		return dbh.transaction((dbh) => {
-			return dbh.query(`UPDATE user SET username = 'me' WHERE id = 9`)
+		return dbh.begin().then((tx) => {
+			return tx.query(`UPDATE user SET username = 'me' WHERE id = 9`)
 				.then((results) => {
-					return dbh.transaction((dbh) => {
-						return dbh.query((`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`));
+					return tx.begin().then((tx2) => {
+						return tx2.query(`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`)
+							.then(() => { tx2.commit(); });
 					});
-				});
+				}).then(() => { tx.commit(); });
 		}).then(() => {
 			// By now both transactions should have been committed
 
@@ -121,14 +122,14 @@ it('Nested Transactions - Commit All', () => {
 
 it('Nested Transactions - Inner Rollback', () => {
 	return initUserTableWithUser({ id: 9, username: 'admin', password: 'root'}).then((dbh) => {
-		return dbh.transaction((dbh) => {
-			return dbh.query(`UPDATE user SET username = 'me' WHERE id = 9`)
+		return dbh.begin().then((tx) => {
+			return tx.query(`UPDATE user SET username = 'me' WHERE id = 9`)
 				.then((results) => {
-					return dbh.transaction((dbh) => {
+					return tx.begin().then((tx2) => {
 						return dbh.query((`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`))
-							.then(() => { throw "A nasty error :o"; });
+							.then(() => { tx2.rollback(); });
 					});
-				});
+				}).then(() => { tx.commit(); });
 		}).then(() => {
 			// By now both transactions should have been committed
 
@@ -145,13 +146,14 @@ it('Nested Transactions - Inner Rollback', () => {
 
 it('Nested Transactions - Outer Rollback', () => {
 	return initUserTableWithUser({ id: 9, username: 'admin', password: 'root'}).then((dbh) => {
-		return dbh.transaction((dbh) => {
-			return dbh.query(`UPDATE user SET username = 'me' WHERE id = 9`)
+		return dbh.begin().then((tx) => {
+			return tx.query(`UPDATE user SET username = 'me' WHERE id = 9`)
 				.then((results) => {
-					return dbh.transaction((dbh) => {
-						return dbh.query((`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`));
+					return tx.begin((tx2) => {
+						return tx2.query((`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`))
+							.then(() => { tx2.commit(); });
 					});
-				}).then(() => { throw "A nasty error :o"; });
+				}).then(() => { return tx.rollback();  });;
 		}).then(() => {
 			// By now both transactions should have been committed
 
