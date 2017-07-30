@@ -86,8 +86,7 @@ describe('AnyDbQ', () => {
 		});
 	});
 
-	if(process.env.ANY_DB_Q_TEST_MYSQL){
-
+	if(process.env.ANY_DB_Q_TEST_MYSQL == true){
 		let db_password = process.env.ANY_DB_Q_TEST_MYSQL_PASSWORD;
 		let db_name     = process.env.ANY_DB_Q_TEST_MYSQL_DATABASE;
 
@@ -129,6 +128,62 @@ describe('AnyDbQ', () => {
 				before(() => {
 					global.getDbConnection = function(){
 						return AnyDbQ({ adapter  : 'mysql',
+						                host     : 'localhost',
+						                user     : 'root',
+						                password : db_password,
+						                database : db_name,
+						              },
+						              { min : 1, max : 10}
+						             );
+					};
+				});
+				runAllStandardDbTests();
+			});
+		});
+	}
+
+	if(process.env.ANY_DB_Q_TEST_POSTGRES == true){
+		let db_password = process.env.ANY_DB_Q_TEST_POSTGRES_PASSWORD;
+		let db_name     = process.env.ANY_DB_Q_TEST_POSTGRES_DATABASE;
+
+		if(db_password === undefined){ db_password = '';          }
+		if(db_name     === undefined){ db_name = 'any_db_q_test'; }
+
+		//:TODO: support env vars for host, user, etc?
+
+		describe('POSTGRES', () => {
+			beforeEach(() => {
+				return AnyDbQ({ adapter  : 'postgres',
+					            host     : 'localhost',
+					            user     : 'postgres',
+				                password : db_password,
+				              })
+					.then((dbh) => {
+						return Q()
+							.then(() => { return dbh.query('DROP DATABASE IF EXISTS ' + db_name + ';'); })
+							.then(() => { return dbh.query('CREATE DATABASE ' + db_name); })
+							.then(() => { return dbh.query('USE ' + db_name); });
+					});
+			});
+
+			describe('STANDALONE', () => {
+				before(() => {
+					global.getDbConnection = function(){
+						return AnyDbQ({ adapter  : 'postgres',
+						                host     : 'localhost',
+						                user     : 'root',
+						                password : db_password,
+						                database : db_name,
+						              });
+					};
+				});
+				runAllStandardDbTests();
+			});
+
+			describe('POOL', () => {
+				before(() => {
+					global.getDbConnection = function(){
+						return AnyDbQ({ adapter  : 'postgres',
 						                host     : 'localhost',
 						                user     : 'root',
 						                password : db_password,
