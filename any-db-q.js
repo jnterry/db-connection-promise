@@ -10,41 +10,60 @@
 
 "use strict";
 
-let Q = require('q');
+let Q        = require('q');
+let begin_tx = require('any-db-transaction');
+
+// Wraps a function which takes a variable number of arguments,
+// then a call back of the form (error, result)
+function _wrapFuncParamsCallback(dbh, func){
+	return function(){
+		let args = arguments; // capture arguments to function
+
+		return Q.promise((resolve, reject) => {
+			// Calll the function with:
+			// - dbh as 'this'
+			// - spread args as the first n arguments
+			// - a callback as the last parameter
+			func.call(dbh, ...args, (err, result) => {
+				if(err){ reject(err);     }
+				else   { resolve(result); }
+			});
+		});
+	};
+}
+
+function _beginTxPromise(dbh, connection_options){
+	return function(){
+		return Q.promise((resolve, reject) => {
+			begin_tx(dbh, (err, tx) => {
+				if(err){ reject(err); return; }
+
+				tx.on('error', (err) => { reject(err); });
+
+				let result = _promisfyConnection(tx, connection_options);
+
+				result.commit   = () => { tx.commit()  ; };
+				result.rollback = () => { tx.rollback(); };
+
+				resolve(result);
+			});
+		});
+	};
+}
 
 function _promisfyConnection(dbh, connection_options) {
-	// Wraps a function which takes a variable number of arguments,
-	// then a call back of the form (error, result)
-	function wrapFuncParamsCallback(func){
-		return function(){
-			let args = arguments; // capture arguments to function
-
-			return Q.promise((resolve, reject) => {
-				// Calll the function with:
-				// - dbh as 'this'
-				// - spread args as the first n arguments
-				// - a callback as the last parameter
-				func.call(dbh, ...args, (err, result) => {
-					if(err){ reject(err);     }
-					else   { resolve(result); }
-				});
-			});
-		};
-	}
-
 	let result = {
-		query      : wrapFuncParamsCallback(dbh.query, arguments),
-		getAdapter : () => { return connection_options.adapter },
+		query      : _wrapFuncParamsCallback(dbh, dbh.query),
+		getAdapter : () => { return connection_options.adapter; },
+		begin      : _beginTxPromise(dbh),
 	};
 
 	if(dbh.close === undefined){
-		result.close = function(){
-			// no-op
-		};
+		result.close = function(){} // no-op
 	} else {
 		result.close = function(){
-			// cant just do = dbh.close since this would
-			// not be set correctly
+			// cant just do = dbh.close since 'this.' inside
+			// function would not be set correctly
 			dbh.close();
 		};
 	}
