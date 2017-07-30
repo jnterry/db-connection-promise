@@ -102,9 +102,9 @@ it('Nested Transactions - Commit All', () => {
 				.then((results) => {
 					return tx.begin().then((tx2) => {
 						return tx2.query(`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`)
-							.then(() => { tx2.commit(); });
+							.then(tx2.commit);
 					});
-				}).then(() => { tx.commit(); });
+				}).then(tx.commit);
 		}).then(() => {
 			// By now both transactions should have been committed
 
@@ -127,9 +127,9 @@ it('Nested Transactions - Inner Rollback', () => {
 				.then((results) => {
 					return tx.begin().then((tx2) => {
 						return dbh.query((`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`))
-							.then(() => { tx2.rollback(); });
+							.then(tx2.rollback);
 					});
-				}).then(() => { tx.commit(); });
+				}).then(tx.commit);
 		}).then(() => {
 			// By now both transactions should have been committed
 
@@ -149,11 +149,11 @@ it('Nested Transactions - Outer Rollback', () => {
 		return dbh.begin().then((tx) => {
 			return tx.query(`UPDATE user SET username = 'me' WHERE id = 9`)
 				.then((results) => {
-					return tx.begin((tx2) => {
+					return tx.begin().then((tx2) => {
 						return tx2.query((`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`))
-							.then(() => { tx2.commit(); });
+							.then(tx2.commit);
 					});
-				}).then(() => { return tx.rollback();  });;
+				}).then(tx.rollback);
 		}).then(() => {
 			// By now both transactions should have been committed
 

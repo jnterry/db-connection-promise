@@ -45,8 +45,22 @@ function _beginPromised(dbh, connection_options){
 
 			let result = (_promisfyConnection(tx, connection_options));
 
-			result.commit   = () => { return tx.commit();   };
-			result.rollback = () => { return tx.rollback(); };
+			function wrapper(func_name){
+				return function(){
+					let defer = Q.defer();
+					tx[func_name]((err) => {
+						if(err){
+							defer.reject(err);
+						} else {
+							defer.resolve(dbh);
+						}
+					});
+					return defer.promise;
+				}
+			}
+
+			result.commit   = wrapper('commit'  );
+			result.rollback = wrapper('rollback');
 
 			defer.resolve(result);
 		});
