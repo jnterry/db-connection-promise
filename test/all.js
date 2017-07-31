@@ -36,116 +36,111 @@ function runAllStandardDbTests(){
 	importTest('transaction-wrapper');
 }
 
-describe('AnyDbQ', () => {
+function testSqliteInMemory(){
+	before(() => {
+		global.getDbConnection = function(){
+			return AnyDbQ({ adapter  : 'sqlite3' });
+		};
+	});
 
-	importTest('connect');
+	runAllStandardDbTests();
+}
 
-	describe('SQLITE3 IN MEMORY', () => {
+function testSqliteFile(){
+	let db_filename = process.env.ANY_DB_Q_TEST_SQLITE_FILE_FILENAME;
+	if(db_filename === undefined){ db_filename = 'test_db.sqlite3'; }
+
+	function deleteDbFile(){
+		if(fs.existsSync(db_filename)){
+			fs.unlinkSync(db_filename);
+		}
+	}
+
+	function connectToSqlite(pool_params){
+		return function(){
+			return AnyDbQ({ adapter  : 'sqlite3',
+			                database : db_filename,
+			              }, pool_params);
+		};
+	}
+
+	afterEach(deleteDbFile);
+
+	describe('STANDALONE', () => {
 		before(() => {
-			global.getDbConnection = function(){
-				return AnyDbQ({ adapter  : 'sqlite3' });
-			};
+			deleteDbFile();
+			global.getDbConnection = connectToSqlite();
 		});
-
 		runAllStandardDbTests();
 	});
 
-	if(process.env.ANY_DB_Q_TEST_SQLITE_FILE == true){
-		let db_filename = process.env.ANY_DB_Q_TEST_SQLITE_FILE_FILENAME;
-		if(db_filename === undefined){
-			db_filename = 'test_db.sqlite3';
-		}
-
-		describe('SQLITE3 FILE', () => {
-			let deleteDbFile = () => {
-				if(fs.existsSync(db_filename)){
-					fs.unlinkSync(db_filename);
-				}
-			};
-
-			afterEach(deleteDbFile);
-
-			describe('STANDALONE', () => {
-				before(() => {
-					deleteDbFile();
-					global.getDbConnection = () => {
-						return AnyDbQ({ adapter  : 'sqlite3',
-						                database : db_filename,
-						              });
-					};
-				});
-				runAllStandardDbTests();
-			});
-
-			describe('POOL', () => {
-				before(() => {
-					deleteDbFile();
-					deleteDbFile();
-					global.getDbConnection = () => {
-						return AnyDbQ({ adapter  : 'sqlite3',
-						                database : db_filename,
-						              },
-						              { min : 1, max : 10 });
-					};
-				});
-				runAllStandardDbTests();
-			});
+	describe('POOL', () => {
+		before(() => {
+			deleteDbFile();
+			global.getDbConnection = connectToSqlite({ min: 1, max: 10});
 		});
+		runAllStandardDbTests();
+	});
+}
+
+function testMysql(){
+	let db_password = process.env.ANY_DB_Q_TEST_MYSQL_PASSWORD;
+	let db_name     = process.env.ANY_DB_Q_TEST_MYSQL_DATABASE;
+
+	if(db_password === undefined){ db_password = '';          }
+	if(db_name     === undefined){ db_name = 'any_db_q_test'; }
+
+	//:TODO: support env vars for host, user, etc?
+
+	// Recreate the test table before every test to avoid leaking state between tests
+	beforeEach(() => {
+		return AnyDbQ({ adapter  : 'mysql',
+		                host     : 'localhost',
+		                user     : 'root',
+		                password : db_password,
+		              })
+			.then((dbh) => {
+				return Q()
+					.then(() => { return dbh.query('DROP DATABASE IF EXISTS ' + db_name + ';'); })
+					.then(() => { return dbh.query('CREATE DATABASE ' + db_name); })
+					.then(() => { return dbh.query('USE ' + db_name); });
+			});
+	});
+
+	function connectToMysql(pool_params){
+		return function(){
+			return AnyDbQ({ adapter  : 'mysql',
+			                host     : 'localhost',
+			                user     : 'root',
+			                password : db_password,
+			                database : db_name,
+			              }, pool_params);
+		};
+	}
+
+	describe('STANDALONE', () => {
+		before(() => { global.getDbConnection = connectToMysql(); });
+		runAllStandardDbTests();
+	});
+
+	describe('POOL', () => {
+		before(() => { global.getDbConnection = connectToMysql({ min: 1, max: 10}); });
+		runAllStandardDbTests();
+	});
+}
+
+/////////////////////////////////////////////////////////
+// Describe block for the entire any-db-q test suite
+describe('AnyDbQ', () => {
+	importTest('connect');
+
+	describe('SQLITE3 IN MEMORY', testSqliteInMemory);
+
+	if(process.env.ANY_DB_Q_TEST_SQLITE_FILE == true){
+		describe('SQLITE3 FILE', testSqliteFile);
 	}
 
 	if(process.env.ANY_DB_Q_TEST_MYSQL == true){
-		let db_password = process.env.ANY_DB_Q_TEST_MYSQL_PASSWORD;
-		let db_name     = process.env.ANY_DB_Q_TEST_MYSQL_DATABASE;
-
-		if(db_password === undefined){ db_password = '';          }
-		if(db_name     === undefined){ db_name = 'any_db_q_test'; }
-
-		//:TODO: support env vars for host, user, etc?
-
-		describe('MYSQL', () => {
-			beforeEach(() => {
-				return AnyDbQ({ adapter  : 'mysql',
-					            host     : 'localhost',
-					            user     : 'root',
-				                password : db_password,
-				              })
-					.then((dbh) => {
-						return Q()
-							.then(() => { return dbh.query('DROP DATABASE IF EXISTS ' + db_name + ';'); })
-							.then(() => { return dbh.query('CREATE DATABASE ' + db_name); })
-							.then(() => { return dbh.query('USE ' + db_name); });
-					});
-			});
-
-			describe('STANDALONE', () => {
-				before(() => {
-					global.getDbConnection = function(){
-						return AnyDbQ({ adapter  : 'mysql',
-						                host     : 'localhost',
-						                user     : 'root',
-						                password : db_password,
-						                database : db_name,
-						              });
-					};
-				});
-				runAllStandardDbTests();
-			});
-
-			describe('POOL', () => {
-				before(() => {
-					global.getDbConnection = function(){
-						return AnyDbQ({ adapter  : 'mysql',
-						                host     : 'localhost',
-						                user     : 'root',
-						                password : db_password,
-						                database : db_name,
-						              },
-						              { min : 1, max : 10}
-						             );
-					};
-				});
-				runAllStandardDbTests();
-			});
-		});
+		describe('MYSQL', testMysql);
 	}
 });
