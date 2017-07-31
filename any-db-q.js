@@ -11,7 +11,7 @@
 "use strict";
 
 let Q        = require('q');
-Q.longStackSupport = true;
+Q.longStackSupport = true; // :TODO: remove
 let begin_tx = require('any-db-transaction');
 
 // Wraps a function which takes a variable number of arguments,
