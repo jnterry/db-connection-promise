@@ -4,6 +4,17 @@ Simple wrapper around any-db module which converts the interface to be promise b
 
 [![Build Status](https://travis-ci.org/jnterry/any-db-q.svg?branch=master)](https://travis-ci.org/jnterry/any-db-q) [![Coverage Status](https://coveralls.io/repos/github/jnterry/any-db-q/badge.svg?branch=master)](https://coveralls.io/github/jnterry/any-db-q?branch=master)
 
+## WARNING - PRERELEASE
+
+**WARNING: This library is currently in pre-release and the API may or may not be changed before final release.**
+
+**The version will be bumped to 1.0.0 when the library is released**
+
+Todo before 1.0.0 release
+- Implement Postgres Tests
+- Experiment with 'chain' API to avoid deeply nested promises
+- Better documentation
+
 ## Usage
 
 ```javascript
