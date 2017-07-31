@@ -11,7 +11,6 @@ global.expect = require('chai').expect;
 
 let AnyDbQ = require('../any-db-q');
 
-
 ////////////////////////////////////////////////////////////////////////////
 // Test suite files obtain a database connection using getDbConnection,
 // if it hasn't been set by someone else provide a simple default
@@ -67,4 +66,32 @@ global.initUserTable = function(){
 			return dbh; // make dbh accessible to calling code
 		});
 	});
+};
+
+global.initUserTableWithUser = function(user){
+	if(user === undefined){
+		user = { id: 1, username : 'Bob', password: 'password' };
+	}
+
+	return initUserTable()
+		.then((dbh) => {
+			return dbh.query(`INSERT INTO user VALUES (?,?,?)`,
+			                 [user.id, user.username, user.password])
+				.then((results) => {
+					expect(results         ).does.exist;
+					expect(results.rowCount).is.deep.equal(1);
+					expect(results.rows    ).is.deep.equal([]);
+
+					return dbh.query('SELECT * FROM user');
+				})
+				.then((results) => {
+					expect(results             ).does.exist;
+					expect(results.lastInsertId).is.not.ok;
+					expect(results.rowCount    ).is.deep.equal(1);
+					expect(results.rows[0]     ).is.deep.equal(user);
+
+					return dbh; // make dbh accessible to calling code
+				});
+		});
+
 };

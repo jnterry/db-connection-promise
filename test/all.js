@@ -32,6 +32,8 @@ function importTest(name, path){
 function runAllStandardDbTests(){
 	importTest('query-simple');
 	importTest('query-bound-params');
+	importTest('transaction-explict');
+	importTest('transaction-wrapper');
 }
 
 describe('AnyDbQ', () => {
@@ -48,46 +50,50 @@ describe('AnyDbQ', () => {
 		runAllStandardDbTests();
 	});
 
-	describe('SQLITE3 FILE', () => {
-		const DB_FILENAME = 'test_db.sqlite3';
+	if(process.env.ANY_DB_Q_TEST_SQLITE_FILE == true){
+		let db_filename = process.env.ANY_DB_Q_TEST_SQLITE_FILE_FILENAME;
+		if(db_filename === undefined){
+			db_filename = 'test_db.sqlite3';
+		}
 
-		let deleteDbFile = () => {
-			if(fs.existsSync(DB_FILENAME)){
-				fs.unlinkSync(DB_FILENAME);
-			}
-		};
+		describe('SQLITE3 FILE', () => {
+			let deleteDbFile = () => {
+				if(fs.existsSync(db_filename)){
+					fs.unlinkSync(db_filename);
+				}
+			};
 
-		afterEach(deleteDbFile);
+			afterEach(deleteDbFile);
 
-		describe('STANDALONE', () => {
-			before(() => {
-				deleteDbFile();
-				global.getDbConnection = () => {
-					return AnyDbQ({ adapter  : 'sqlite3',
-					                database : DB_FILENAME,
-					              });
-				};
+			describe('STANDALONE', () => {
+				before(() => {
+					deleteDbFile();
+					global.getDbConnection = () => {
+						return AnyDbQ({ adapter  : 'sqlite3',
+						                database : db_filename,
+						              });
+					};
+				});
+				runAllStandardDbTests();
 			});
-			runAllStandardDbTests();
-		});
 
-		describe('POOL', () => {
-			before(() => {
-				deleteDbFile();
-				deleteDbFile();
-				global.getDbConnection = () => {
-					return AnyDbQ({ adapter  : 'sqlite3',
-					                database : DB_FILENAME,
-					              },
-					              { min : 1, max : 10 });
-				};
+			describe('POOL', () => {
+				before(() => {
+					deleteDbFile();
+					deleteDbFile();
+					global.getDbConnection = () => {
+						return AnyDbQ({ adapter  : 'sqlite3',
+						                database : db_filename,
+						              },
+						              { min : 1, max : 10 });
+					};
+				});
+				runAllStandardDbTests();
 			});
-			runAllStandardDbTests();
 		});
-	});
+	}
 
-	if(process.env.ANY_DB_Q_TEST_MYSQL){
-
+	if(process.env.ANY_DB_Q_TEST_MYSQL == true){
 		let db_password = process.env.ANY_DB_Q_TEST_MYSQL_PASSWORD;
 		let db_name     = process.env.ANY_DB_Q_TEST_MYSQL_DATABASE;
 
