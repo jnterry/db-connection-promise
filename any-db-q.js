@@ -10,41 +10,100 @@
 
 "use strict";
 
-let Q = require('q');
+let Q        = require('q');
+Q.longStackSupport = true;
+let begin_tx = require('any-db-transaction');
+
+// Wraps a function which takes a variable number of arguments,
+// then a call back of the form (error, result)
+function _wrapFuncParamsCallback(dbh, func){
+	return function(){
+		let args = arguments; // capture arguments to function
+
+		return Q.promise((resolve, reject) => {
+			// Call the function with:
+			// - dbh as 'this'
+			// - spread args as the first n arguments
+			// - a callback as the last parameter
+			func.call(dbh, ...args, (err, result) => {
+				if(err){ reject(err);     }
+				else   { resolve(result); }
+			});
+		});
+	};
+}
+
+/////////////////////////////////////////////////////////////////////
+/// \brief Begins a transaction and returns promise that resolves to
+/// transaction object
+/////////////////////////////////////////////////////////////////////
+function _beginPromised(dbh, connection_options){
+	return function(){
+		let defer = Q.defer();
+		begin_tx(dbh._connection, { autoRollback: false }, (err, tx) => {
+			if(err){ defer.reject(err); return; }
+
+			let result = (_promisfyConnection(tx, connection_options));
+
+			function wrapper(func_name){
+				return function(){
+					let defer = Q.defer();
+					tx[func_name]((err) => {
+						if(err){
+							defer.reject(err);
+						} else {
+							defer.resolve(dbh);
+						}
+					});
+					return defer.promise;
+				};
+			}
+
+			result.commit   = wrapper('commit'  );
+			result.rollback = wrapper('rollback');
+
+			defer.resolve(result);
+		});
+
+		return defer.promise;
+	};
+}
+
+/////////////////////////////////////////////////////////////////////
+/// \brief Performs some set of operations inside a transaction
+/// which is automatically committed unless promise is rejected,
+/// in which case it is rolled back
+/////////////////////////////////////////////////////////////////////
+function _doOpsInTransaction(dbh){
+	return function(operations){
+		return dbh.begin().then((dbh) => {
+			return operations(dbh)
+				.then(() => {
+					return dbh.commit();
+				})
+				.fail((err) => {
+					return dbh.rollback();
+				});
+		});
+	};
+}
 
 function _promisfyConnection(dbh, connection_options) {
-	// Wraps a function which takes a variable number of arguments,
-	// then a call back of the form (error, result)
-	function wrapFuncParamsCallback(func){
-		return function(){
-			let args = arguments; // capture arguments to function
-
-			return Q.promise((resolve, reject) => {
-				// Calll the function with:
-				// - dbh as 'this'
-				// - spread args as the first n arguments
-				// - a callback as the last parameter
-				func.call(dbh, ...args, (err, result) => {
-					if(err){ reject(err);     }
-					else   { resolve(result); }
-				});
-			});
-		};
-	}
-
 	let result = {
-		query      : wrapFuncParamsCallback(dbh.query, arguments),
-		getAdapter : () => { return connection_options.adapter },
+		_connection : dbh,
+		query       : _wrapFuncParamsCallback(dbh, dbh.query),
+		getAdapter  : () => { return connection_options.adapter; },
 	};
 
+	result.begin       = _beginPromised     (result, connection_options);
+	result.transaction = _doOpsInTransaction(result, connection_options);
+
 	if(dbh.close === undefined){
-		result.close = function(){
-			// no-op
-		};
+		result.close = function(){}; // no-op
 	} else {
 		result.close = function(){
-			// cant just do = dbh.close since this would
-			// not be set correctly
+			// cant just do = dbh.close since 'this.' inside
+			// function would not be set correctly
 			dbh.close();
 		};
 	}

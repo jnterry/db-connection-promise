@@ -26,7 +26,8 @@
 	],
 	"dependencies": {
 		"q": "1.5.0",
-		"any-db": "2.2.0"
+		"any-db": "2.2.0",
+		"any-db-transaction": "2.2.2"
 	},
 	"devDependencies": {
 		"any-db-mysql": "2.1.2",

@@ -36,7 +36,7 @@ it('Create table and query', () => {
 				expect(results.rowCount    ).to.deep.equal(1);
 				expect(results.rows        ).to.deep.equal([]);
 
-				return dbh.query(`SELECT * FROM user;`)
+				return dbh.query(`SELECT * FROM user;`);
 			}).then((results) => {
 				expect(results             ).does.exist;
 				expect(results.lastInsertId).is.not.ok;
