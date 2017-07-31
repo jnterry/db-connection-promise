@@ -13,7 +13,9 @@ Simple wrapper around any-db module which converts the interface to be promise b
 Todo before 1.0.0 release
 - Implement Postgres Tests
 - Experiment with 'chain' API to avoid deeply nested promises
+- Test using API in real project rather than just in tests ([nano-orm](https://github.com/jnterry/nano-orm))
 - Better documentation
+- Cleanup of code
 
 ## Usage
 
@@ -46,6 +48,7 @@ For example, mysql supports the keyword [AUTO_INCREMENT](https://dev.mysql.com/d
 This library makes absolutely *NO* attempt to shield users from these differences; instead the intended use case is that users will pick a particular database and stick with it for the lifetime of their project, however by using any-db-q you can utilise the same q promise based interface regardless of which database you happen to choose.
 
 ### Supported Adaptors
-	Theoretically all any-db-XXX adaptors conform to the same interface, and so since this library works with one it should be compatible with all of them, however it is currently only tested against the following adaptors:
+
+Theoretically all any-db-XXX adaptors conform to the same interface, and so since this library works with one it should be compatible with all of them, however it is currently only tested against the following adaptors:
 	- [sqlite3](https://www.npmjs.com/package/any-db-sqlite3)
 	- [mysql](https://www.npmjs.com/package/any-db-mysql)
