@@ -52,5 +52,6 @@ This library makes absolutely *NO* attempt to shield users from these difference
 ### Supported Adaptors
 
 Theoretically all any-db-XXX adaptors conform to the same interface, and so since this library works with one it should be compatible with all of them, however it is currently only tested against the following adaptors:
-	- [sqlite3](https://www.npmjs.com/package/any-db-sqlite3)
-	- [mysql](https://www.npmjs.com/package/any-db-mysql)
+
+- [any-db-sqlite3](https://www.npmjs.com/package/any-db-sqlite3)
+- [any-db-mysql](https://www.npmjs.com/package/any-db-mysql)
