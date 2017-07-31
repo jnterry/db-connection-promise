@@ -126,7 +126,7 @@ it('Nested Transactions - Inner Rollback', () => {
 			return tx.query(`UPDATE user SET username = 'me' WHERE id = 9`)
 				.then((results) => {
 					return tx.begin().then((tx2) => {
-						return dbh.query((`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`))
+						return tx2.query((`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`))
 							.then(tx2.rollback);
 					});
 				}).then(tx.commit);

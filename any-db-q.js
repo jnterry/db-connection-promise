@@ -56,7 +56,7 @@ function _beginPromised(dbh, connection_options){
 						}
 					});
 					return defer.promise;
-				}
+				};
 			}
 
 			result.commit   = wrapper('commit'  );
@@ -95,7 +95,7 @@ function _promisfyConnection(dbh, connection_options) {
 		getAdapter  : () => { return connection_options.adapter; },
 	};
 
-	result.begin       = _beginPromised(result, connection_options);
+	result.begin       = _beginPromised     (result, connection_options);
 	result.transaction = _doOpsInTransaction(result, connection_options);
 
 	if(dbh.close === undefined){
