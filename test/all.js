@@ -1,10 +1,11 @@
 ////////////////////////////////////////////////////////////////////////////
 ///                       Part of any-db-q                               ///
 ////////////////////////////////////////////////////////////////////////////
-/// \file 02-simple-query.js
+/// \file all.js
 /// \author Jamie Terry
 /// \date 2017/07/29
-/// \brief Tests for running simple queries against the database
+/// \brief File which imports and runs all other test scripts, with a
+/// variety of different database adaptors
 ////////////////////////////////////////////////////////////////////////////
 
 "use strict";
