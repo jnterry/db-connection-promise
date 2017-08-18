@@ -100,3 +100,27 @@ it('Querying non-existent table produces error', (done) => {
 					   })
 					  );
 });
+
+it('Connection can be closed', (done) => {
+	getDbConnection()
+		.then((dbh) => {
+			// Check connection is alive with dummy query
+			return dbh.query('SELECT 1')
+				.then((results) => {
+					expect(results.rows).to.deep.equals([{ '1' : 1} ]);
+					expect(dbh.close   ).to.exist;
+
+					return dbh.close();
+				})
+				.then(() => {
+					done();
+					// :TODO: not implemented for sqlite3 since calling close
+					// results in a segfault
+
+					// check connection is now dead
+					//return expectPromiseFails(done, dbh.query('SELECT 1'));
+				});
+		})
+		.fail((err) => done(err));
+
+});
