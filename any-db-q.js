@@ -88,6 +88,44 @@ function _doOpsInTransaction(dbh){
 	};
 }
 
+function generateCloseMethod(dbh){
+	if(dbh._connection !== undefined){
+		//then this is a transaction, close the connection behind it
+		return generateCloseMethod(dbh._connection);
+	}
+
+	// Otherwise try and identify the connection's close method
+	if(dbh.close !== undefined){
+		// Then its a pool, close it as normal
+		return function(){
+			return dbh.close();
+		};
+	} else if(dbh.destroy !== undefined) {
+		// Then its a MySQL standalone connection, call destroy to close
+		return function(){
+			return dbh.destroy();
+		};
+	} else if (dbh._db !== undefined && dbh._db.close !== undefined) {
+		// Then is a sqlite3 connection
+		return function() {
+			// :TODO: this results in a segfault - bug with underlying library?
+			// however sqlite3 connection doesn't keep the app alive like a mysql
+			// one, so closing it isnt as vital...
+
+			//dbh._db.close((err, result) => {
+			//	console.log("Closed sqlite3 connection, err:");
+			//	console.log(err);
+			//	console.log("result:");
+			//	console.log(result);
+			//});
+		};
+	} else {
+		console.log("Can't determine how to close the connection: ");
+		console.dir(dbh);
+		throw "Unsupported database adapter - cannot be closed";
+	}
+}
+
 function _promisfyConnection(dbh, connection_options) {
 	let result = {
 		_connection : dbh,
@@ -98,15 +136,7 @@ function _promisfyConnection(dbh, connection_options) {
 	result.begin       = _beginPromised     (result, connection_options);
 	result.transaction = _doOpsInTransaction(result, connection_options);
 
-	if(dbh.close === undefined){
-		result.close = function(){}; // no-op
-	} else {
-		result.close = function(){
-			// cant just do = dbh.close since 'this.' inside
-			// function would not be set correctly
-			dbh.close();
-		};
-	}
+	result.close = generateCloseMethod(dbh);
 
 	return result;
 }
