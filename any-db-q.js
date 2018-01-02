@@ -250,7 +250,10 @@ ConnectionPool.prototype.getConnection = function(){
 	// spans multiple requests, but instead create a promise for each request
 	let defer = Q.defer();
 	begin_tx(this._pool, { autoRollback: false }, (err, tx) => {
-		if(err){ defer.reject(err); }
+		if(err){
+			defer.reject(err);
+			return;
+		}
 
 		let result = (_promisfyConnection(tx));
 
