@@ -59,6 +59,7 @@ function testSqliteFile(){
 	}
 
 	function connectToSqlite(pool_params){
+		if(pool_params == null){ pool_params = {}; }
 		return (new AnyDbQ({ adapter         : 'sqlite3',
 		                     database        : db_filename,
 		                     min_connections : pool_params.min,
@@ -110,6 +111,7 @@ function testMysql(){
 	});
 
 	function connectToMysql(pool_params){
+		if(pool_params == null){ pool_params = {}; }
 		return new AnyDbQ({ adapter         : 'mysql',
 		                    host            : 'localhost',
 		                    user            : 'root',
