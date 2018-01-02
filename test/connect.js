@@ -67,21 +67,23 @@ it('Invalid adapter value returns invalid connection', () => {
 	})).to.throw(Error);
 });
 
-it('Bad credentials return invalid connection', () => {
-	expect(deferredMakeAnyDbQPool({
+it('Bad credentials return invalid connection', (done) => {
+	let dbPool = new AnyDbQ({
 		adapter   : 'mysql',
 		host      : 'localhost',
 		user      : 'X_BAD_USER_X',
 		password  : '_A_PASSWORD_'
-	})).to.throw(Error);
+	});
+	expectPromiseFails(done, dbPool.getConnection());
 });
 
-it('Bad port return invalid connection', () => {
-	expect(deferredMakeAnyDbQPool({
+it('Bad port return invalid connection', (done) => {
+	let dbPool = new AnyDbQ({
 		'adapter'   : 'mysql',
 		'host'      : 'localhost',
 		'user'      : 'X_BAD_USER_X',
 		'password'  : '_A_PASSWORD_',
 		'port'      : '-1'
-	})).to.throw(Error);
+	});
+	expectPromiseFails(done, dbPool.getConnection());
 });
