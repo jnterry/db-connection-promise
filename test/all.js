@@ -60,11 +60,14 @@ function testSqliteFile(){
 
 	function connectToSqlite(pool_params){
 		if(pool_params == null){ pool_params = {}; }
-		return (new AnyDbQ({ adapter         : 'sqlite3',
-		                     database        : db_filename,
-		                     min_connections : pool_params.min,
-		                     max_connections : pool_params.max,
-		                   }).geConnection);
+		return () => {
+			let dbPool = new AnyDbQ({ adapter         : 'sqlite3',
+			                          database        : db_filename,
+			                          min_connections : pool_params.min,
+			                          max_connections : pool_params.max,
+			                        });
+			return dbPool.getConnection();
+		};
 	};
 
 	afterEach(deleteDbFile);
@@ -97,11 +100,12 @@ function testMysql(){
 
 	// Recreate the test table before every test to avoid leaking state between tests
 	beforeEach(() => {
-		return AnyDbQ({ adapter  : 'mysql',
-		                host     : 'localhost',
-		                user     : 'root',
-		                password : db_password,
-		              })
+		let dbPool = new AnyDbQ({ adapter  : 'mysql',
+		                          host     : 'localhost',
+		                          user     : 'root',
+		                          password : db_password,
+		                        });
+		return dbPool.getConnection()
 			.then((dbh) => {
 				return Q()
 					.then(() => { return dbh.query('DROP DATABASE IF EXISTS ' + db_name + ';'); })
@@ -112,14 +116,17 @@ function testMysql(){
 
 	function connectToMysql(pool_params){
 		if(pool_params == null){ pool_params = {}; }
-		return new AnyDbQ({ adapter         : 'mysql',
+		return () => {
+			let dbPool = new AnyDbQ({ adapter         : 'mysql',
 		                    host            : 'localhost',
 		                    user            : 'root',
 		                    password        : db_password,
 		                    database        : db_name,
 		                    min_connections : pool_params.min,
 		                    max_connections : pool_params.max,
-		                  }).getConnection;
+			                        });
+			return dbPool.getConnection();
+		};
 	}
 
 	describe('STANDALONE', () => {
