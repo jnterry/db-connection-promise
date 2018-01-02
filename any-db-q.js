@@ -257,43 +257,17 @@ ConnectionPool.prototype.getConnection = function(){
 
 		let result = (_promisfyConnection(tx));
 
+		let orig_close = result.close;
+		result.close = function(){
+			tx.commit();
+			orig_close.call(result);
+		};
 		result.getPool = (() => { return this; });
 
 		defer.resolve(result);
 	});
 
 	return defer.promise;
-
-
-	/*	return function(){
-		let defer = Q.defer();
-		begin_tx(dbh._connection, { autoRollback: false }, (err, tx) => {
-			if(err){ defer.reject(err); return; }
-
-			let result = (_promisfyConnection(tx));
-
-			function wrapper(func_name){
-				return function(){
-					let defer = Q.defer();
-					tx[func_name]((err) => {
-						if(err){
-							defer.reject(err);
-						} else {
-							defer.resolve(dbh);
-						}
-					});
-					return defer.promise;
-				};
-			}
-
-			result.commit   = wrapper('commit'  );
-			result.rollback = wrapper('rollback');
-
-			defer.resolve(result);
-		});
-
-		return defer.promise;
-	};*/
 };
 
 /////////////////////////////////////////////////////////////////////
