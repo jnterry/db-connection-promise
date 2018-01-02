@@ -6,14 +6,15 @@
 let AnyDbQ = require('../../any-db-q');
 let Q      = require('q');
 
-AnyDbQ({
+let dbPool = new AnyDbQ({
 	'adapter'  : 'mysql',
 	'host'     : 'localhost',
 	'user'     : 'root',
 	'password' : 'test123',
 	'database' : 'any_db_q_example_01',
-})
-	.then((dbh) => {
+});
+
+dbPool.getConnection().then((dbh) => {
 		console.log("Successfully connected to database");
 
 		return dbh.query("SELECT * FROM email")

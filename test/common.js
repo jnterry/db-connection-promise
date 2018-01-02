@@ -20,7 +20,8 @@ let AnyDbQ = require('../any-db-q');
 // which sets getDbConnection to test more complex configurations
 if(global.getDbConnecion === undefined){
 	global.getDbConnection = function(){
-		return AnyDbQ({ adapter: 'sqlite3'});
+		let dbPool = new AnyDbQ({ adapter: 'sqlite3'});
+		return dbPool.getConnection();
 	};
 }
 
@@ -44,7 +45,7 @@ global.expectPromiseFails = function(done, promise){
 global.initUserTable = function(){
 	return getDbConnection().then((dbh) => {
 		let autoincrement_word = '';
-		switch(dbh.getAdapter()){
+		switch(dbh.getPool().getAdapter()){
 		case 'mysql':
 			autoincrement_word = 'AUTO_INCREMENT';
 			break;

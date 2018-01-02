@@ -40,7 +40,8 @@ function runAllStandardDbTests(){
 function testSqliteInMemory(){
 	before(() => {
 		global.getDbConnection = function(){
-			return AnyDbQ({ adapter  : 'sqlite3' });
+			let dbPool = new AnyDbQ({ adapter  : 'sqlite3' });
+			return dbPool.getConnection();
 		};
 	});
 
@@ -58,12 +59,12 @@ function testSqliteFile(){
 	}
 
 	function connectToSqlite(pool_params){
-		return function(){
-			return AnyDbQ({ adapter  : 'sqlite3',
-			                database : db_filename,
-			              }, pool_params);
-		};
-	}
+		return (new AnyDbQ({ adapter         : 'sqlite3',
+		                     database        : db_filename,
+		                     min_connections : pool_params.min,
+		                     max_connections : pool_params.max,
+		                   }).geConnection);
+	};
 
 	afterEach(deleteDbFile);
 
@@ -82,7 +83,7 @@ function testSqliteFile(){
 		});
 		runAllStandardDbTests();
 	});
-}
+};
 
 function testMysql(){
 	let db_password = process.env.ANY_DB_Q_TEST_MYSQL_PASSWORD;
@@ -109,14 +110,14 @@ function testMysql(){
 	});
 
 	function connectToMysql(pool_params){
-		return function(){
-			return AnyDbQ({ adapter  : 'mysql',
-			                host     : 'localhost',
-			                user     : 'root',
-			                password : db_password,
-			                database : db_name,
-			              }, pool_params);
-		};
+		return new AnyDbQ({ adapter         : 'mysql',
+		                    host            : 'localhost',
+		                    user            : 'root',
+		                    password        : db_password,
+		                    database        : db_name,
+		                    min_connections : pool_params.min,
+		                    max_connections : pool_params.max,
+		                  }).getConnection;
 	}
 
 	describe('STANDALONE', () => {

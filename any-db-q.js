@@ -13,6 +13,7 @@
 let Q        = require('q');
 Q.longStackSupport = true; // :TODO: remove
 let begin_tx = require('any-db-transaction');
+let AnyDb    = require('any-db');
 
 // Wraps a function which takes a variable number of arguments,
 // then a call back of the form (error, result)
@@ -37,13 +38,13 @@ function _wrapFuncParamsCallback(dbh, func){
 /// \brief Begins a transaction and returns promise that resolves to
 /// transaction object
 /////////////////////////////////////////////////////////////////////
-function _beginPromised(dbh, connection_options){
+function _beginPromised(dbh){
 	return function(){
 		let defer = Q.defer();
 		begin_tx(dbh._connection, { autoRollback: false }, (err, tx) => {
 			if(err){ defer.reject(err); return; }
 
-			let result = (_promisfyConnection(tx, connection_options));
+			let result = (_promisfyConnection(tx));
 
 			function wrapper(func_name){
 				return function(){
@@ -88,10 +89,10 @@ function _doOpsInTransaction(dbh){
 	};
 }
 
-function generateCloseMethod(dbh){
+function _generateCloseMethod(dbh){
 	if(dbh._connection !== undefined){
 		//then this is a transaction, close the connection behind it
-		return generateCloseMethod(dbh._connection);
+		return _generateCloseMethod(dbh._connection);
 	}
 
 	// Otherwise try and identify the connection's close method
@@ -126,17 +127,16 @@ function generateCloseMethod(dbh){
 	}
 }
 
-function _promisfyConnection(dbh, connection_options) {
+function _promisfyConnection(dbh) {
 	let result = {
 		_connection : dbh,
 		query       : _wrapFuncParamsCallback(dbh, dbh.query),
-		getAdapter  : () => { return connection_options.adapter; },
 	};
 
-	result.begin       = _beginPromised     (result, connection_options);
-	result.transaction = _doOpsInTransaction(result, connection_options);
+	result.begin       = _beginPromised     (result);
+	result.transaction = _doOpsInTransaction(result);
 
-	result.close = generateCloseMethod(dbh);
+	result.close = _generateCloseMethod(dbh);
 
 	return result;
 }
@@ -154,7 +154,7 @@ function connect(connection_options, pool_params){
 				if(error){
 					reject(error);
 				} else {
-					resolve(_promisfyConnection(connection, connection_options));
+					resolve(_promisfyConnection(connection));
 				}
 			});
 		} else {
@@ -180,4 +180,125 @@ function connect(connection_options, pool_params){
 	});
 }
 
-module.exports = connect;
+function ConnectionPool(options){
+	if(options.min_connections == null && options.max_connections == null){
+		options.min_connections = 1;
+		options.max_connections = 1;
+	}
+
+	if(options.min_connections == null || options.max_connections == null){
+		throw new Error("Must either specify both of 'min_connections' and 'max_connections' or neither");
+	}
+
+	if(options.min_connections > options.max_connections){
+		throw (new Error("Cannot create connection pool." +
+		                 "Minimum number of connections must be less than the maximum"
+		                )
+		      );
+	}
+
+	if(options.adapter          === 'sqlite3' &&
+		 options.host             ==  null      &&
+		 options.database         ==  null      &&
+		 options.min_connections  !=  1         &&
+		 options.max_connections  !=  1         &&
+		 !options.force_sqlite3_pool){
+
+		throw (
+			new Error("Attempted to connect to sqlite3 in memory database as a pool.\n" +
+					      "Each connection would have its own distinct in memory database, " +
+					      "between which no data would be shared.\n" +
+			          "This probably isn't what you intended. If it is, set " +
+			          "'connection_options.force_sqlite3_pool' to a truthy value.")
+		);
+	}
+
+	this._pool = AnyDb.createPool(options,
+	                              { min: options.min_connections,
+	                                max: options.max_connections
+	                              }
+	                             );
+
+	this.getAdapter = function(){
+		return options.adapter;
+	};
+
+	return this;
+}
+
+/////////////////////////////////////////////////////////////////////
+/// \brief Retrieves a connection from the pool
+/// \return Promise which resolves to a database connection as soon
+/// as one becomes available
+/////////////////////////////////////////////////////////////////////
+ConnectionPool.prototype.getConnection = function(){
+	// any-db allows you to just call "query" on the connection pool, causing the
+	// query to be executed on the first available connection.
+	// Instead we want to provide an explicit getConnection method so in typically
+	// web application
+	// we can:
+	// - get connection for the request
+	// - do some db operations
+	// - send response to client
+	// - do some db operations
+	// - close the connection
+	//
+	// We can model this using a transaction, since using a transaction forces
+	// a single connection to be used
+	//
+	// This is nessacery since we don't want to create one huge promise chain that
+	// spans multiple requests, but instead create a promise for each request
+	let defer = Q.defer();
+	begin_tx(this._pool, { autoRollback: false }, (err, tx) => {
+		if(err){ defer.reject(err); }
+
+		let result = (_promisfyConnection(tx));
+
+		result.getPool = (() => { return this; });
+
+		defer.resolve(result);
+	});
+
+	return defer.promise;
+
+
+	/*	return function(){
+		let defer = Q.defer();
+		begin_tx(dbh._connection, { autoRollback: false }, (err, tx) => {
+			if(err){ defer.reject(err); return; }
+
+			let result = (_promisfyConnection(tx));
+
+			function wrapper(func_name){
+				return function(){
+					let defer = Q.defer();
+					tx[func_name]((err) => {
+						if(err){
+							defer.reject(err);
+						} else {
+							defer.resolve(dbh);
+						}
+					});
+					return defer.promise;
+				};
+			}
+
+			result.commit   = wrapper('commit'  );
+			result.rollback = wrapper('rollback');
+
+			defer.resolve(result);
+		});
+
+		return defer.promise;
+	};*/
+};
+
+/////////////////////////////////////////////////////////////////////
+/// \brief Closes all active connections, should be called when the application
+/// wants to exit
+/////////////////////////////////////////////////////////////////////
+ConnectionPool.prototype.closeAllConnections = function(){
+	this._pool.close();
+};
+
+module.exports = ConnectionPool;
