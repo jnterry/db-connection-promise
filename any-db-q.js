@@ -15,6 +15,7 @@ Q.longStackSupport = true; // :TODO: remove
 let begin_tx = require('any-db-transaction');
 let AnyDb    = require('any-db');
 
+/*
 // Wraps a function which takes a variable number of arguments,
 // then a call back of the form (error, result)
 function _wrapFuncParamsCallback(dbh, func){
@@ -87,7 +88,7 @@ function _doOpsInTransaction(dbh){
 				});
 		});
 	};
-}
+}*/
 
 function _generateCloseMethod(dbh){
 	if(dbh._connection !== undefined){
@@ -127,6 +128,7 @@ function _generateCloseMethod(dbh){
 	}
 }
 
+/*
 function _promisfyConnection(dbh) {
 	let result = {
 		_connection : dbh,
@@ -140,46 +142,7 @@ function _promisfyConnection(dbh) {
 
 	return result;
 }
-
-function connect(connection_options, pool_params){
-	let result = {};
-
-	result._any_db = require('any-db');
-
-	return Q.promise((resolve, reject) => {
-
-		if(pool_params === undefined){
-			// Then create single connection to the database
-			result._any_db.createConnection(connection_options, (error, connection) => {
-				if(error){
-					reject(error);
-				} else {
-					resolve(_promisfyConnection(connection));
-				}
-			});
-		} else {
-			// Then create connection pool to the database
-
-			if(connection_options.adapter  === 'sqlite3' &&
-			   connection_options.host     ==  null      &&
-			   connection_options.database ==  null      &&
-			   !connection_options.force_sqlite3_pool){
-
-				throw (
-					new Error("Attempted to connect to sqlite3 in memory database as a pool.\n" +
-					          "Each connection would have its own distinct in memory database, " +
-					          "between which no data would be shared.\n" +
-					          "This probably isn't what you intended. If it is, set " +
-					          "'connection_options.force_sqlite3_pool' to a truthy value.")
-				);
-			}
-
-			let connection = result._any_db.createPool(connection_options, pool_params);
-			resolve(_promisfyConnection(connection, connection_options));
-		}
-	});
-}
-
+*/
 function ConnectionPool(options){
 	if(options.min_connections == null && options.max_connections == null){
 		options.min_connections = 1;
@@ -249,25 +212,70 @@ ConnectionPool.prototype.getConnection = function(){
 	// This is nessacery since we don't want to create one huge promise chain that
 	// spans multiple requests, but instead create a promise for each request
 	let defer = Q.defer();
+
+	let result = {
+		_connection : null,
+		_promise    : defer.promise,
+	};
+
 	begin_tx(this._pool, { autoRollback: false }, (err, tx) => {
 		if(err){
 			defer.reject(err);
 			return;
 		}
 
-		let result = (_promisfyConnection(tx));
-
-		let orig_close = result.close;
-		result.close = function(){
-			tx.commit();
-			orig_close.call(result);
-		};
-		result.getPool = (() => { return this; });
-
-		defer.resolve(result);
+		result._connection = tx;
+		defer.resolve(tx);
 	});
 
-	return defer.promise;
+	result.query = function(){
+		let args = arguments; // capture arguments to function
+		result._promise = result._promise.then(() =>
+			Q.nfapply(result._connection.query.bind(result._connection), args)
+		);
+		return result;
+	};
+
+	result.catch = result.fail = function(onRejected){
+		result._promise = result._promise.fail(onRejected);
+		return result;
+	};
+
+	result.then = function(onFulfilled, onRejected, onProgress){
+		result._promise = result._promise.then(onFulfilled, onRejected, onProgress);
+		return result;
+	};
+
+	result.close = function(){
+		result._promise = result._promise.then(() => {
+			if(result._connection == null){
+				// :TODO: should this be an error?
+				// Note that done() calls this method -> we don't want
+				// to make .close().done() cause error
+				// But not sure if it works for done() to do check,
+				// since both methods will try to assign value to result._promise
+				return;
+			}
+			result._connection.commit();
+			_generateCloseMethod(result._connection)();
+			result._connection = null;
+		});
+		return result;
+	};
+
+	result.done = function(onFulfilled, onRejected, onProgress){
+		result.close();
+		result._promise = result._promise
+			.done(onFulfilled, onRejected, onProgress);
+
+		return result;
+	};
+
+	result.getPool = () => {
+		return this;
+	};
+
+	return result;
 };
 
 /////////////////////////////////////////////////////////////////////

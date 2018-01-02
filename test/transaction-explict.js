@@ -23,7 +23,7 @@ it('Insert in transaction and commit', () => {
 					expect(results.rowCount    ).to.deep.equal(1);
 					expect(results.rows        ).to.deep.equal([]);
 
-					return tx.query(`SELECT * FROM user;`)
+					return tx.query(`SELECT * FROM user;`);
 				}).then((results) => {
 					// Check data is visible within the transaction
 					expect(results             ).does.exist;

@@ -14,32 +14,20 @@ let dbPool = new AnyDbQ({
 	'database' : 'any_db_q_example_01',
 });
 
-dbPool.getConnection().then((dbh) => {
-		console.log("Successfully connected to database");
+let dbh = dbPool.getConnection();
 
-		return dbh.query("SELECT * FROM email")
-			.then((results) => {
-				console.log("Got results from database!");
-				console.log("Row count: " +  results.rowCount);
-				console.log("Rows:");
-				console.dir(results.rows);
-			})
-			.fail((err) => {
-				console.error("Failed to perform database operation");
-				console.dir(err);
-				process.exit(2);
-			})
-			.finally(() => {
-				console.log("Database operations completed");
-				dbh.close();
-			})
-			.done();
-	})
-	.fail((err) => {
-		console.error("Failed to connect to database");
-		console.dir(err);
-		process.exit(1);
-	})
-	.done(() => {
-		console.log("Promise finished");
-	});;
+dbh.fail((err) => {
+	console.error("Failed to connect to database");
+	console.dir(err);
+	process.exit(1);
+});
+
+dbh.query("SELECT * FROM email")
+	.then((results) => {
+		console.log("Got results from database!");
+		console.log("Row count: " +  results.rowCount);
+		console.log("Rows:");
+		console.dir(results.rows);
+	});
+
+dbh.close();

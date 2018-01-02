@@ -16,13 +16,19 @@ let AnyDbQ = require('../any-db-q');
 function isValidConnection(connection){
 	expect(connection).to.exist;
 	expect(connection.query).to.be.a('function');
+	expect(connection.close).to.be.a('function');
 	return connection;
 }
 
+function testSuccessfulConnect(options){
+	let dbPool = new AnyDbQ(options);
+	let dbh = dbPool.getConnection();
+	isValidConnection(dbh);
+	dbh.close();
+}
+
 it('Single connection returns valid connection', () => {
-	return (new AnyDbQ({
-		'adapter'  : 'sqlite3',
-	}).getConnection().then(isValidConnection).then((dbh) => { dbh.close() }));
+	testSuccessfulConnect({ 'adapter'  : 'sqlite3' });
 });
 
 function deferredMakeAnyDbQPool(options){
@@ -41,23 +47,21 @@ it("Can't connect to sqlite3 in memory database as pool without flag", () => {
 
 it("Connect to sqlite3 in memory database as pool with flag returns valid connection",
    () => {
-	   return (new AnyDbQ({ adapter            : 'sqlite3',
-	                        force_sqlite3_pool : 1,
-	                        min_connections    : 2,
-	                        max_connections    : 32,
-	                      }).getConnection()
-	           .then(isValidConnection).then((dbh) => { dbh.close(); }));
+	   testSuccessfulConnect({ adapter            : 'sqlite3',
+	                             force_sqlite3_pool : 1,
+	                             min_connections    : 2,
+	                             max_connections    : 32,
+	                         });
    }
   );
 
 it("Connect to sqlite3 file database as pool without flag returns valid connection",
    () => {
-	   return (new AnyDbQ({ adapter         : 'sqlite3',
-	                        database        : 'test_db.sqlite3',
-	                        min_connections : 2,
-	                        max_connections : 32,
-	                      }).getConnection()
-	           .then(isValidConnection).then((dbh) => { dbh.close(); }));
+	   testSuccessfulConnect({ adapter         : 'sqlite3',
+	                           database        : 'test_db.sqlite3',
+	                           min_connections : 2,
+	                           max_connections : 32,
+	                         });
    }
 );
 
