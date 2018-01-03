@@ -133,7 +133,7 @@ function ConnectionPromise(queryable){
 			}
 
 			this._connection = conn;
-			defer.resolve(conn); // :TODO: shouldn't we resolve with this?
+			defer.resolve(conn);
 		});
 
 		doCloseConnection = () => {
@@ -150,7 +150,7 @@ function ConnectionPromise(queryable){
 			_generateCloseMethod(this._connection)();
 		};
 
-		defer.resolve(queryable); // :TODO: shouldn't we resolve with this?
+		defer.resolve(queryable);
 	}
 
 	this.close = function() {
@@ -194,6 +194,55 @@ ConnectionPromise.prototype.done = function(onFulfilled, onRejected, onProgress)
 	this._promise = this._promise
 		.done(onFulfilled, onRejected, onProgress);
 
+	return this;
+};
+
+ConnectionPromise.prototype.transaction = function(operations){
+	this._promise = this._promise.then(() => {
+		let defer = Q.defer();
+		begin_tx(this._connection, (err, tx) => {
+			if(err){
+				defer.reject(err);
+				return;
+			}
+
+			let dbh_tx = new ConnectionPromise(tx);
+
+			function wrapper(func_name){
+				return function(){
+					let defer = Q.defer();
+					tx[func_name]((err) => {
+						if(err){
+							defer.reject(err);
+						} else {
+							defer.resolve(true);
+						}
+					});
+					return defer.promise;
+				};
+			}
+
+			dbh_tx.commit   = wrapper('commit'  );
+			dbh_tx.rollback = wrapper('rollback');
+
+			Q()
+				.then(() => {
+					return operations(dbh_tx)
+						.then(() => {
+							return dbh_tx.commit();
+						})
+						.fail(() => {
+							return dbh_tx.rollback();
+						});
+				})
+				.then(() => {
+					defer.resolve(true);
+				})
+				.done();
+		});
+
+		return defer.promise;
+	});
 	return this;
 };
 
