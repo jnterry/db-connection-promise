@@ -99,31 +99,31 @@ function testMysql(){
 	//:TODO: support env vars for host, user, etc?
 
 	// Recreate the test table before every test to avoid leaking state between tests
-	beforeEach(() => {
+	beforeEach((done) => {
 		let dbPool = new AnyDbQ({ adapter  : 'mysql',
 		                          host     : 'localhost',
 		                          user     : 'root',
 		                          password : db_password,
 		                        });
-		return dbPool.getConnection()
-			.then((dbh) => {
-				return Q()
-					.then(() => { return dbh.query('DROP DATABASE IF EXISTS ' + db_name + ';'); })
-					.then(() => { return dbh.query('CREATE DATABASE ' + db_name); })
-					.then(() => { return dbh.query('USE ' + db_name); });
-			});
+		dbPool.getConnection()
+			.query('DROP DATABASE IF EXISTS ' + db_name + ';')
+			.query('CREATE DATABASE ' + db_name)
+			.query('USE ' + db_name)
+			.close()
+			.then(() => { done(); })
+			.done();
 	});
 
 	function connectToMysql(pool_params){
 		if(pool_params == null){ pool_params = {}; }
 		return () => {
 			let dbPool = new AnyDbQ({ adapter         : 'mysql',
-		                    host            : 'localhost',
-		                    user            : 'root',
-		                    password        : db_password,
-		                    database        : db_name,
-		                    min_connections : pool_params.min,
-		                    max_connections : pool_params.max,
+			                          host            : 'localhost',
+			                          user            : 'root',
+			                          password        : db_password,
+			                          database        : db_name,
+			                          min_connections : pool_params.min,
+			                          max_connections : pool_params.max,
 			                        });
 			return dbPool.getConnection();
 		};

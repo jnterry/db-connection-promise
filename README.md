@@ -12,7 +12,6 @@ Simple wrapper around any-db module which converts the interface to be promise b
 
 Todo before 1.0.0 release
 - Implement Postgres Tests
-- Experiment with 'chain' API to avoid deeply nested promises
 - Test using API in real project rather than just in tests ([nano-orm](https://github.com/jnterry/nano-orm))
 - Better documentation
 - Work out the peerDependency vs dependency stuff (see any-db docs)

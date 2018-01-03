@@ -21,8 +21,6 @@ function ConnectionPromise(queryable){
 	this._connection = null;
 	this._promise    = defer.promise;
 
-	let doCloseConnection = () => {};
-
 	if(typeof queryable.acquire === 'function' &&
 	   typeof queryable.release === 'function'){
 		// Then its a pool of connections, grab one
@@ -105,6 +103,9 @@ ConnectionPromise.prototype.done = function(onFulfilled, onRejected, onProgress)
 	if(typeof this.close === 'function'){
 		this.close();
 	}
+	// :TODO: should we auto commit/rollback a transaction?
+	//        -> if so need to keep track of if committed/rolledback, since can't
+	//           do it twice
 	this._promise = this._promise
 		.done(onFulfilled, onRejected, onProgress);
 
@@ -252,5 +253,10 @@ ConnectionPool.prototype.getConnection = function(){
 ConnectionPool.prototype.closeAllConnections = function(){
 	this._pool.close();
 };
+
+// Ensure users of the library can get access to the underlying ConnectionPromise
+// This means you can create the connection/connection pool using standard
+// any-db functions, and then just wrap then in a new ConnectionPromise
+ConnectionPool.ConnectionPromise = ConnectionPromise;
 
 module.exports = ConnectionPool;
