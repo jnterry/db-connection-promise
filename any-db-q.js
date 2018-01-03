@@ -15,107 +15,6 @@ Q.longStackSupport = true; // :TODO: remove
 let begin_tx = require('any-db-transaction');
 let AnyDb    = require('any-db');
 
-/*
-
-/////////////////////////////////////////////////////////////////////
-/// \brief Begins a transaction and returns promise that resolves to
-/// transaction object
-/////////////////////////////////////////////////////////////////////
-function _beginPromised(dbh){
-	return function(){
-		let defer = Q.defer();
-		begin_tx(dbh._connection, { autoRollback: false }, (err, tx) => {
-			if(err){ defer.reject(err); return; }
-
-			let result = (_promisfyConnection(tx));
-
-			function wrapper(func_name){
-				return function(){
-					let defer = Q.defer();
-					tx[func_name]((err) => {
-						if(err){
-							defer.reject(err);
-						} else {
-							defer.resolve(dbh);
-						}
-					});
-					return defer.promise;
-				};
-			}
-
-			result.commit   = wrapper('commit'  );
-			result.rollback = wrapper('rollback');
-
-			defer.resolve(result);
-		});
-
-		return defer.promise;
-	};
-}
-
-/////////////////////////////////////////////////////////////////////
-/// \brief Performs some set of operations inside a transaction
-/// which is automatically committed unless promise is rejected,
-/// in which case it is rolled back
-/////////////////////////////////////////////////////////////////////
-function _doOpsInTransaction(dbh){
-	return function(operations){
-		return dbh.begin().then((dbh) => {
-			return operations(dbh)
-				.then(() => {
-					return dbh.commit();
-				})
-				.fail((err) => {
-					return dbh.rollback();
-				});
-		});
-	};
-}*/
-
-function _generateCloseMethod(dbh){
-	if(dbh._connection !== undefined){
-		//then this is a transaction, close the connection behind it
-		return _generateCloseMethod(dbh._connection);
-	}
-
-	// Otherwise try and identify the connection's close method
-	if(dbh.close !== undefined){
-		// Then its a pool, close it as normal
-		return function(){
-			return dbh.close();
-		};
-	} else if(dbh.destroy !== undefined) {
-		// Then its a MySQL standalone connection, call destroy to close
-		return function(){
-			return dbh.destroy();
-		};
-	} else if (dbh._db !== undefined && dbh._db.close !== undefined) {
-		// Then is a sqlite3 connection
-		return function() {
-			// :TODO: this results in a segfault - bug with underlying library?
-			// however sqlite3 connection doesn't keep the app alive like a mysql
-			// one, so closing it isnt as vital...
-
-			//dbh._db.close((err, result) => {
-			//	console.log("Closed sqlite3 connection, err:");
-			//	console.log(err);
-			//	console.log("result:");
-			//	console.log(result);
-			//});
-		};
-	} else {
-		console.log("Can't determine how to close the connection: ");
-		console.dir(dbh);
-		throw "Unsupported database adapter - cannot be closed";
-	}
-}
-
-///////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////
-
 function ConnectionPromise(queryable){
 	let defer = Q.defer();
 
@@ -124,7 +23,8 @@ function ConnectionPromise(queryable){
 
 	let doCloseConnection = () => {};
 
-	if(typeof queryable.acquire === 'function'){
+	if(typeof queryable.acquire === 'function' &&
+	   typeof queryable.release === 'function'){
 		// Then its a pool of connections, grab one
 		queryable.acquire((err, conn) => {
 			if(err){
@@ -136,39 +36,51 @@ function ConnectionPromise(queryable){
 			defer.resolve(conn);
 		});
 
-		doCloseConnection = () => {
-			queryable.release(this._connection);
+		this.close = function() {
+			this._promise = this._promise.then(() => {
+				if(this._connection == null){
+					// :TODO: should this be an error?
+					// Note that done() calls this method -> we don't want
+					// to make .close().done() cause error
+					// But not sure if it works for done() to do check,
+					// since both methods will try to assign value to this._promise
+					return;
+				}
+				queryable.release(this._connection);
+				this._connection = null;
+			});
+			return this;
 		};
-	} else {
-		// Then its some other queryable (single connection, transaction, etc)
+	} else if (typeof queryable.commit   === 'function' &&
+	           typeof queryable.rollback === 'function'){
+		// Then its a transaction
 		this._connection = queryable;
 
-		doCloseConnection = () => {
-			if(typeof this._connection.commit === 'function'){
-				this._connection.commit();
-			}
-			_generateCloseMethod(this._connection)();
+		let wrapper = (func_name) => {
+			return () => {
+				this._promise = this._promise.then(() => {
+					let defer = Q.defer();
+					queryable[func_name]((err) => {
+						if(err){
+							defer.reject(err);
+						} else {
+							defer.resolve(true);
+						}
+					});
+					return defer.promise;
+				});
+				return this;
+			};
 		};
 
-		defer.resolve(queryable);
-	}
+		this.commit   = wrapper('commit'  );
+		this.rollback = wrapper('rollback');
 
-	this.close = function() {
-		this._promise = this._promise.then(() => {
-			if(this._connection == null){
-				// :TODO: should this be an error?
-				// Note that done() calls this method -> we don't want
-				// to make .close().done() cause error
-				// But not sure if it works for done() to do check,
-				// since both methods will try to assign value to this._promise
-				return;
-			}
-			doCloseConnection();
-			this._connection = null;
-		});
-		return this;
-	};
-}
+		defer.resolve(queryable);
+	} else {
+		defer.reject(new Error("Unknown queryable type, cannot create ConnectionPromise"));
+	}
+};
 
 ConnectionPromise.prototype.query = function(){
 		let args = arguments; // capture arguments to function
@@ -190,7 +102,9 @@ ConnectionPromise.prototype.then = function(onFulfilled, onRejected, onProgress)
 };
 
 ConnectionPromise.prototype.done = function(onFulfilled, onRejected, onProgress){
-	this.close();
+	if(typeof this.close === 'function'){
+		this.close();
+	}
 	this._promise = this._promise
 		.done(onFulfilled, onRejected, onProgress);
 
@@ -200,7 +114,8 @@ ConnectionPromise.prototype.done = function(onFulfilled, onRejected, onProgress)
 ConnectionPromise.prototype.transaction = function(operations){
 	this._promise = this._promise.then(() => {
 		let defer = Q.defer();
-		begin_tx(this._connection, (err, tx) => {
+
+		begin_tx(this._connection, { autoRollback: false }, (err, tx) => {
 			if(err){
 				defer.reject(err);
 				return;
@@ -208,35 +123,29 @@ ConnectionPromise.prototype.transaction = function(operations){
 
 			let dbh_tx = new ConnectionPromise(tx);
 
-			function wrapper(func_name){
-				return function(){
-					let defer = Q.defer();
-					tx[func_name]((err) => {
-						if(err){
-							defer.reject(err);
-						} else {
-							defer.resolve(true);
-						}
-					});
-					return defer.promise;
-				};
-			}
-
-			dbh_tx.commit   = wrapper('commit'  );
-			dbh_tx.rollback = wrapper('rollback');
+			let doAction = (func_name) => {
+				tx[func_name]((err) => {
+					if(err){ defer.reject(err);   }
+					else   { defer.resolve(true); }
+				});
+			};
 
 			Q()
 				.then(() => {
+					let manually_closed = false;
+					tx.on('close', () => { manually_closed = true; });
+					let operation = '';
 					return operations(dbh_tx)
+						.then(() => { operation = 'commit';   },
+						      () => { operation = 'rollback'; }
+						     )
 						.then(() => {
-							return dbh_tx.commit();
-						})
-						.fail(() => {
-							return dbh_tx.rollback();
+							if(!manually_closed){
+								doAction(operation);
+							} else {
+								defer.resolve(true);
+							}
 						});
-				})
-				.then(() => {
-					defer.resolve(true);
 				})
 				.done();
 		});

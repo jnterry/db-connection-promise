@@ -4,16 +4,24 @@
 /// \file transaction-wrapper.js
 /// \author Jamie Terry
 /// \date 2017/07/29
-/// \brief Contains tests for database transactions using transaction wrapper
+/// \brief Contains tests for database transactions using implicit commits
+/// and rollbacks
 ////////////////////////////////////////////////////////////////////////////
 
 "use strict";
 
 require('./common.js');
 
+function isValidTransaction(tx){
+	expect(tx.query   ).to.be.a('function');
+	expect(tx.commit  ).to.be.a('function');
+	expect(tx.rollback).to.be.a('function');
+}
+
 it('Insert in transaction and commit', () => {
 	return initUserTable()
 		.transaction((dbh) => {
+			isValidTransaction(dbh);
 			return dbh
 				.query(`INSERT INTO user (id, username, password) VALUES
 			                           (1, 'bob', 'pass');`
@@ -57,6 +65,7 @@ it('Insert in transaction and commit', () => {
 it('Insert in transaction and rollback', () => {
 	return initUserTable()
 		.transaction((dbh) => {
+			isValidTransaction(dbh);
 			return dbh
 				.query(`INSERT INTO user (id, username, password) VALUES
 			                           (1, 'bob', 'pass');`
@@ -96,9 +105,11 @@ it('Insert in transaction and rollback', () => {
 it('Nested Transactions - Commit All', () => {
 	return initUserTableWithUser({ id: 9, username: 'admin', password: 'root'})
 		.transaction((dbh) => {
+			isValidTransaction(dbh);
 			return dbh
 				.query(`UPDATE user SET username = 'me' WHERE id = 9`)
 				.transaction((dbh) => {
+					isValidTransaction(dbh);
 					return dbh.query((`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`));
 				});
 		}) // By now both transactions should have been committed
@@ -115,9 +126,11 @@ it('Nested Transactions - Commit All', () => {
 it('Nested Transactions - Inner Rollback', () => {
 	return initUserTableWithUser({ id: 9, username: 'admin', password: 'root'})
 		.transaction((dbh) => {
+			isValidTransaction(dbh);
 			return dbh
 				.query(`UPDATE user SET username = 'me' WHERE id = 9`)
 				.transaction((dbh) => {
+					isValidTransaction(dbh);
 					return dbh
 						.query((`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`))
 						.then(() => { throw "A nasty error :o"; });
@@ -136,9 +149,11 @@ it('Nested Transactions - Inner Rollback', () => {
 it('Nested Transactions - Outer Rollback', () => {
 	return initUserTableWithUser({ id: 9, username: 'admin', password: 'root'})
 		.transaction((dbh) => {
+			isValidTransaction(dbh);
 			return dbh
 				.query(`UPDATE user SET username = 'me' WHERE id = 9`)
 				.transaction((dbh) => {
+					isValidTransaction(dbh);
 					return dbh.query((`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`));
 				})
 				.then(() => { throw "A nasty error :o"; });
@@ -156,15 +171,18 @@ it('Nested Transactions - Outer Rollback', () => {
 it('Nested Transactions - Both Rollback', () => {
 	return initUserTableWithUser({ id: 9, username: 'admin', password: 'root'})
 		.transaction((dbh) => {
+			isValidTransaction(dbh);
 			return dbh
 				.query(`UPDATE user SET username = 'me' WHERE id = 9`)
 				.transaction((dbh) => {
+					isValidTransaction(dbh);
 					return dbh
 						.query((`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`))
 						.then(() => { throw "A nasty error :o"; });
 				})
 				.then(() => { throw "An even nastier error :o"; });
-		}).query(`SELECT * FROM user ORDER BY id ASC`)
+		})
+		.query(`SELECT * FROM user ORDER BY id ASC`)
 		.then((results) => {
 			// By now both transactions should have been rolled back
 			expect(results             ).does.exist;
