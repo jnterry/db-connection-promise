@@ -31,3 +31,7 @@ dbh.query("SELECT * FROM email")
 	});
 
 dbh.close();
+
+console.log("Enqueued close all connections");
+dbPool.closeAllConnections();
+console.log("Script terminated");

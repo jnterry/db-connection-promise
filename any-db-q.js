@@ -122,15 +122,52 @@ function ConnectionPromise(queryable){
 	this._connection = null;
 	this._promise    = defer.promise;
 
-	begin_tx(queryable, { autoRollback: false }, (err, tx) => {
-		if(err){
-			defer.reject(err);
-			return;
-		}
+	let doCloseConnection = () => {};
 
-		this._connection = tx;
-		defer.resolve(tx);
-	});
+	if(typeof queryable.acquire === 'function'){
+		// Then its a pool of connections, grab one
+		queryable.acquire((err, conn) => {
+			if(err){
+				defer.reject(err);
+				return;
+			}
+
+			this._connection = conn;
+			defer.resolve(conn); // :TODO: shouldn't we resolve with this?
+		});
+
+		doCloseConnection = () => {
+			queryable.release(this._connection);
+		};
+	} else {
+		// Then its some other queryable (single connection, transaction, etc)
+		this._connection = queryable;
+
+		doCloseConnection = () => {
+			if(typeof this._connection.commit === 'function'){
+				this._connection.commit();
+			}
+			_generateCloseMethod(this._connection)();
+		};
+
+		defer.resolve(queryable); // :TODO: shouldn't we resolve with this?
+	}
+
+	this.close = function() {
+		this._promise = this._promise.then(() => {
+			if(this._connection == null){
+				// :TODO: should this be an error?
+				// Note that done() calls this method -> we don't want
+				// to make .close().done() cause error
+				// But not sure if it works for done() to do check,
+				// since both methods will try to assign value to this._promise
+				return;
+			}
+			doCloseConnection();
+			this._connection = null;
+		});
+		return this;
+	};
 }
 
 ConnectionPromise.prototype.query = function(){
@@ -149,23 +186,6 @@ ConnectionPromise.prototype.catch = ConnectionPromise.prototype.catch;
 
 ConnectionPromise.prototype.then = function(onFulfilled, onRejected, onProgress){
 	this._promise = this._promise.then(onFulfilled, onRejected, onProgress);
-	return this;
-};
-
-ConnectionPromise.prototype.close = function(){
-	this._promise = this._promise.then(() => {
-		if(this._connection == null){
-			// :TODO: should this be an error?
-			// Note that done() calls this method -> we don't want
-			// to make .close().done() cause error
-			// But not sure if it works for done() to do check,
-			// since both methods will try to assign value to this._promise
-			return;
-		}
-		this._connection.commit();
-		_generateCloseMethod(this._connection)();
-		this._connection = null;
-	});
 	return this;
 };
 
@@ -261,11 +281,21 @@ ConnectionPool.prototype.getConnection = function(){
 };
 
 /////////////////////////////////////////////////////////////////////
-/// \brief Closes all active connections, should be called when the application
-/// wants to exit
+/// \brief Closes all active connections, should be called when the
+/// application wants to exit since live connections will keep the
+/// process running.
+///
+/// Note that the promise for all active connections will be fully
+/// executed before the connections are closed, hence this function
+/// will not interrupt any on-going operations. Each individual
+/// connection needs to have .close() called before this method
+/// will have any effect.
+///
+/// Once this method is called subsequent calls to .getConnection()
+/// will fail :TODO: test this statement
 /////////////////////////////////////////////////////////////////////
-//ConnectionPool.prototype.closeAllConnections = function(){
-//	this._pool.close();
-//};
+ConnectionPool.prototype.closeAllConnections = function(){
+	this._pool.close();
+};
 
 module.exports = ConnectionPool;
