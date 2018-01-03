@@ -130,22 +130,19 @@ ConnectionPromise.prototype.transaction = function(operations){
 				});
 			};
 
-			Q()
+			let manually_closed = false;
+			tx.on('close', () => { manually_closed = true; });
+			let operation = '';
+			operations(dbh_tx)
+				.then(() => { operation = 'commit';   },
+				      () => { operation = 'rollback'; }
+				     )
 				.then(() => {
-					let manually_closed = false;
-					tx.on('close', () => { manually_closed = true; });
-					let operation = '';
-					return operations(dbh_tx)
-						.then(() => { operation = 'commit';   },
-						      () => { operation = 'rollback'; }
-						     )
-						.then(() => {
-							if(!manually_closed){
-								doAction(operation);
-							} else {
-								defer.resolve(true);
-							}
-						});
+					if(!manually_closed){
+						doAction(operation);
+					} else {
+						defer.resolve(true);
+					}
 				})
 				.done();
 		});
