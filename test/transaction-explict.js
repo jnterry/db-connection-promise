@@ -16,8 +16,8 @@ it('Insert in transaction and commit', () => {
 	return initUserTable().then((dbh) => {
 		return dbh.begin().then((tx) => {
 			return tx.query(`INSERT INTO user (id, username, password) VALUES
-			                      (1, 'bob', 'pass');`
-			                )
+			                                  (1, 'bob', 'pass');`
+			               )
 				.then((results) => {
 					expect(results             ).does.exist;
 					expect(results.rowCount    ).to.deep.equal(1);
