@@ -176,6 +176,13 @@ ConnectionPromise.prototype.then = function(onFulfilled, onRejected, onProgress)
 	return this;
 };
 
+/////////////////////////////////////////////////////////////////////
+/// \brief Closes the connection (if still open), then calls done on the
+/// internal promise.
+/// \note This object becomes invalidated after calling this method
+/// \return The internal promise representing the chain of actions to
+/// be performed with the connection.
+/////////////////////////////////////////////////////////////////////
 ConnectionPromise.prototype.done = function(onFulfilled, onRejected, onProgress){
 	if(typeof this.close === 'function'){
 		this.close();
@@ -186,7 +193,7 @@ ConnectionPromise.prototype.done = function(onFulfilled, onRejected, onProgress)
 	this._promise = this._promise
 		.done(onFulfilled, onRejected, onProgress);
 
-	return this;
+	return this._promise;
 };
 
 ConnectionPromise.prototype.transaction = function(operations){
@@ -231,24 +238,17 @@ ConnectionPromise.prototype.transaction = function(operations){
 };
 
 /////////////////////////////////////////////////////////////////////
-/// \brief Gets the queryable that this ConnectionPromise is wrapping
-/////////////////////////////////////////////////////////////////////
-ConnectionPromise.prototype.getQueryable = function(){
-	return this._queryable;
-};
-
-/////////////////////////////////////////////////////////////////////
 /// \brief Gets the promise representing the chain of actions to perform
 /// with this connection.
-/// This method may be useful if you want to return a promise from a promise
-/// in order to wait on its completion
+/// This method is useful if you want to return a promise from a then()
+/// callback
 /// :TODO: Ideally we would just be able to return a ConnectionPromise
 /// Can we somehow extend the Q notion of a promise rather than creating
 /// our own type? That would also solve the problem of not having access to
 /// some q methods on our ConnectionPromise (eg, all, spread etc)
 /// -> these could be added manually
 /////////////////////////////////////////////////////////////////////
-ConnectionPromise.prototype.getPromise = function(){
+ConnectionPromise.prototype.promise = function(){
 	return this._promise;
 };
 
