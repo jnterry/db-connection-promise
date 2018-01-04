@@ -11,32 +11,67 @@
 "use strict";
 
 let Q        = require('q');
-Q.longStackSupport = true; // :TODO: remove
 let begin_tx = require('any-db-transaction');
 let AnyDb    = require('any-db');
+
+function _doCloseConnection(dbh){
+	let defer = Q.defer();
+	if(typeof dbh.destroy === 'function') {
+		// Then its a MySQL standalone connection, call destroy to close
+		return dbh.destroy();
+		defer.resolve(true);
+	} else if (dbh._db !== undefined && typeof dbh._db.close === 'function') {
+		// Then is a sqlite3 connection
+
+		// :TODO: this results in a segfault - bug with underlying library?
+		// however sqlite3 connection doesn't keep the app alive like a mysql
+		// one, so closing it isnt as vital...
+
+		//dbh._db.close((err, result) => {
+		//	console.log("Closed sqlite3 connection, err:");
+		//	console.log(err);
+		//	console.log("result:");
+		//	console.log(result);
+		//});
+		defer.resolve(true);
+	} else {
+		console.log("Can't determine how to close the connection: ");
+		console.dir(dbh);
+		let err = new Error("Unsupported database adapter - cannot be closed");
+		defer.reject(err);
+		throw err;
+	}
+	return defer.promise;
+}
 
 function ConnectionPromise(queryable){
 	let defer = Q.defer();
 
-	this._connection = null;
+	this._queryable = null;
 	this._promise    = defer.promise;
 
-	if(typeof queryable.acquire === 'function' &&
-	   typeof queryable.release === 'function'){
-		// Then its a pool of connections, grab one
+	let type = ConnectionPromise.getQueryableType(queryable);
+	if(type.type == null || type.adapter == null){
+		let err = new Error("Unknown queryable type, cannot create ConnectionPromise");
+		defer.reject(err);
+		throw err;
+	}
+
+	switch(type.type) {
+	case 'pool':
 		queryable.acquire((err, conn) => {
 			if(err){
 				defer.reject(err);
 				return;
 			}
 
-			this._connection = conn;
+			this._queryable = conn;
 			defer.resolve(conn);
 		});
 
 		this.close = function() {
 			this._promise = this._promise.then(() => {
-				if(this._connection == null){
+				if(this._queryable == null){
 					// :TODO: should this be an error?
 					// Note that done() calls this method -> we don't want
 					// to make .close().done() cause error
@@ -44,15 +79,14 @@ function ConnectionPromise(queryable){
 					// since both methods will try to assign value to this._promise
 					return;
 				}
-				queryable.release(this._connection);
-				this._connection = null;
+				queryable.release(this._queryable);
+				this._queryable = null;
 			});
 			return this;
 		};
-	} else if (typeof queryable.commit   === 'function' &&
-	           typeof queryable.rollback === 'function'){
-		// Then its a transaction
-		this._connection = queryable;
+		break;
+	case 'transaction':
+		this._queryable = queryable;
 
 		let wrapper = (func_name) => {
 			return () => {
@@ -75,18 +109,61 @@ function ConnectionPromise(queryable){
 		this.rollback = wrapper('rollback');
 
 		defer.resolve(queryable);
-	} else {
-		defer.reject(new Error("Unknown queryable type, cannot create ConnectionPromise"));
+		break;
+	case 'connection':
+		this._queryable = queryable;
+		this.close = function () {
+			this._promise = this._promise.then(() => {
+				if(this._queryable == null){
+					// :TODO: should this be an error?
+					// Note that done() calls this method -> we don't want
+					// to make .close().done() cause error
+					// But not sure if it works for done() to do check,
+					// since both methods will try to assign value to this._promise
+					return 1;
+				}
+				return _doCloseConnection(this._queryable);
+			}).then(() => {
+				this._queryable = null;
+			});
+			return this;
+		};
+		defer.resolve(queryable);
+		break;
+	default:
+		let error = "Unknown queryable type - cannot create ConnectionPromise";
+		defer.reject(error);
+		throw error;
 	}
 };
 
 ConnectionPromise.prototype.query = function(){
 		let args = arguments; // capture arguments to function
 		this._promise = this._promise.then(() =>
-			Q.nfapply(this._connection.query.bind(this._connection), args)
+			Q.nfapply(this._queryable.query.bind(this._queryable), args)
 		);
 		return this;
-	};
+};
+
+/////////////////////////////////////////////////////////////////////
+/// \brief Occasionally you need to use the result of a previous promised
+/// step to generate the query string. This function can be used to do that
+/// \param query_generator Function which is passed the result of the previous
+/// promise in the chain, should return either a string representing the query,
+/// or an array consisting of the arguments to the query (first being the query
+/// string, next being an array of bound parameters)
+/////////////////////////////////////////////////////////////////////
+ConnectionPromise.prototype.queryfn = function(query_generator) {
+	this._promise = this._promise.then((val) => {
+		let query_args = query_generator(val);
+
+		if(!Array.isArray(query_args)){
+			query_args = [ query_args ];
+		}
+		return Q.nfapply(this._queryable.query.bind(this._queryable), query_args);
+	});
+	return this;
+};
 
 ConnectionPromise.prototype.fail = function(onRejected){
 	this._promise = this._promise.fail(onRejected);
@@ -116,7 +193,7 @@ ConnectionPromise.prototype.transaction = function(operations){
 	this._promise = this._promise.then(() => {
 		let defer = Q.defer();
 
-		begin_tx(this._connection, { autoRollback: false }, (err, tx) => {
+		begin_tx(this._queryable, { autoRollback: false }, (err, tx) => {
 			if(err){
 				defer.reject(err);
 				return;
@@ -153,110 +230,77 @@ ConnectionPromise.prototype.transaction = function(operations){
 	return this;
 };
 
-///////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////
-
-function ConnectionPool(options){
-	if(options.min_connections == null && options.max_connections == null){
-		options.min_connections = 1;
-		options.max_connections = 1;
-	}
-
-	if(options.min_connections == null || options.max_connections == null){
-		throw new Error("Must either specify both of 'min_connections' and 'max_connections' or neither");
-	}
-
-	if(options.min_connections > options.max_connections){
-		throw (new Error("Cannot create connection pool." +
-		                 "Minimum number of connections must be less than the maximum"
-		                )
-		      );
-	}
-
-	if(options.adapter          === 'sqlite3' &&
-		 options.host             ==  null      &&
-		 options.database         ==  null      &&
-		 options.min_connections  !=  1         &&
-		 options.max_connections  !=  1         &&
-		 !options.force_sqlite3_pool){
-
-		throw (
-			new Error("Attempted to connect to sqlite3 in memory database as a pool.\n" +
-					      "Each connection would have its own distinct in memory database, " +
-					      "between which no data would be shared.\n" +
-			          "This probably isn't what you intended. If it is, set " +
-			          "'connection_options.force_sqlite3_pool' to a truthy value.")
-		);
-	}
-
-	this._pool = AnyDb.createPool(options,
-	                              { min: options.min_connections,
-	                                max: options.max_connections
-	                              }
-	                             );
-
-	this.getAdapter = function(){
-		return options.adapter;
-	};
-
-	return this;
-}
+/////////////////////////////////////////////////////////////////////
+/// \brief Gets the queryable that this ConnectionPromise is wrapping
+/////////////////////////////////////////////////////////////////////
+ConnectionPromise.prototype.getQueryable = function(){
+	return this._queryable;
+};
 
 /////////////////////////////////////////////////////////////////////
-/// \brief Retrieves a connection from the pool
-/// \return Promise which resolves to a database connection as soon
-/// as one becomes available
+/// \brief Gets the promise representing the chain of actions to perform
+/// with this connection.
+/// This method may be useful if you want to return a promise from a promise
+/// in order to wait on its completion
+/// :TODO: Ideally we would just be able to return a ConnectionPromise
+/// Can we somehow extend the Q notion of a promise rather than creating
+/// our own type? That would also solve the problem of not having access to
+/// some q methods on our ConnectionPromise (eg, all, spread etc)
+/// -> these could be added manually
 /////////////////////////////////////////////////////////////////////
-ConnectionPool.prototype.getConnection = function(){
-	// any-db allows you to just call "query" on the connection pool, causing the
-	// query to be executed on the first available connection.
-	// Instead we want to provide an explicit getConnection method so in typically
-	// web application
-	// we can:
-	// - get connection for the request
-	// - do some db operations
-	// - send response to client
-	// - do some db operations
-	// - close the connection
-	//
-	// We can model this using a transaction, since using a transaction forces
-	// a single connection to be used
-	//
-	// This is nessacery since we don't want to create one huge promise chain that
-	// spans multiple requests, but instead create a promise for each request
-	let result = new ConnectionPromise(this._pool);
+ConnectionPromise.prototype.getPromise = function(){
+	return this._promise;
+};
 
-	result.getPool = () => {
-		return this;
-	};
+/////////////////////////////////////////////////////////////////////
+/// \brief Determines the type of a queryable
+/// \return object of following form:
+/// { type    : "connection" | "pool" | "transaction" | null,
+///   adapter : "mysql" | "sqlite3" | ... | null,
+/// }
+/// null values will be used when the type cannot be determined
+/////////////////////////////////////////////////////////////////////
+ConnectionPromise.getQueryableType = function(queryable) {
+	let result = { type: null, adapter: null };
+
+	if(queryable == null                    ) { return result; }
+	if(queryable.adapter == null            ) { return result; }
+	if(queryable.adapter.name == null       ) { return result; }
+	if(typeof queryable.query !== 'function') { return result; }
+
+	result.adapter = queryable.adapter.name;
+
+	if(typeof queryable.acquire === 'function' &&
+	   typeof queryable.release === 'function'){
+		result.type = "pool";
+	} else if (typeof queryable.commit   === 'function' &&
+	           typeof queryable.rollback === 'function' &&
+	           // :TODO: -> standard connections have these methods too :(
+	           // we want to check if its actually a transaction, below line
+	           // relies on internal implementation details of any-db-transaction
+	           // can we think of anything more robust?
+	           (queryable._nestingLevel != null || queryable._autoRollback != null)){
+		result.type = "transaction";
+	} else if (typeof queryable.query === 'function'){
+		result.type = "connection";
+	}
 
 	return result;
 };
 
 /////////////////////////////////////////////////////////////////////
-/// \brief Closes all active connections, should be called when the
-/// application wants to exit since live connections will keep the
-/// process running.
-///
-/// Note that the promise for all active connections will be fully
-/// executed before the connections are closed, hence this function
-/// will not interrupt any on-going operations. Each individual
-/// connection needs to have .close() called before this method
-/// will have any effect.
-///
-/// Once this method is called subsequent calls to .getConnection()
-/// will fail :TODO: test this statement
+/// \brief Method version of getQueryableType that operates
+/// on the queryable of this ConnectionPromise
+/// This is a chain operator that should be inserted in a list
+/// of promise like operations, return value can be accessed by following with
+/// a then. Eg:
+/// dbh.getQueryableType().then((type) => { /* ... */ });
 /////////////////////////////////////////////////////////////////////
-ConnectionPool.prototype.closeAllConnections = function(){
-	this._pool.close();
+ConnectionPromise.prototype.getQueryableType = function() {
+	this._promise = this._promise.then(() => {
+		return ConnectionPromise.getQueryableType(this._queryable);
+	});
+	return this;
 };
 
-// Ensure users of the library can get access to the underlying ConnectionPromise
-// This means you can create the connection/connection pool using standard
-// any-db functions, and then just wrap then in a new ConnectionPromise
-ConnectionPool.ConnectionPromise = ConnectionPromise;
-
-module.exports = ConnectionPool;
+module.exports = ConnectionPromise;

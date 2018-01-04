@@ -3,10 +3,11 @@
 // Simple example of connecting to a mysql database
 // and running a query
 
-let AnyDbQ = require('../../any-db-q');
-let Q      = require('q');
+let AnyDb  = require('any-db');
 
-let dbPool = new AnyDbQ({
+let AnyDbQ = require('../../any-db-q');
+
+var pool = AnyDb.createConnection({
 	'adapter'  : 'mysql',
 	'host'     : 'localhost',
 	'user'     : 'root',
@@ -14,7 +15,7 @@ let dbPool = new AnyDbQ({
 	'database' : 'any_db_q_example_01',
 });
 
-let dbh = dbPool.getConnection();
+let dbh = new AnyDbQ(pool);
 
 dbh.fail((err) => {
 	console.error("Failed to connect to database");
@@ -31,5 +32,3 @@ dbh.query("SELECT * FROM email")
 	});
 
 dbh.close();
-
-dbPool.closeAllConnections();

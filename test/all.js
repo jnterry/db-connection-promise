@@ -11,6 +11,7 @@
 "use strict";
 
 let fs         = require('fs');
+let AnyDb      = require('any-db');
 let AnyDbQ     = require('../any-db-q');
 let require_nc = require('require-nocache')(module);
 let Q          = require('q');
@@ -24,6 +25,16 @@ function importTest(name, path){
 	describe(name, function(){
 		require_nc("./" + path);
 	});
+}
+
+function createConnection(options, pool_options){
+	let connection = null;
+	if(pool_options == null){
+		connection = AnyDb.createConnection(options);
+	} else {
+		connection = AnyDb.createPool(options, pool_options);
+	}
+	return new AnyDbQ(connection);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -40,8 +51,7 @@ function runAllStandardDbTests(){
 function testSqliteInMemory(){
 	before(() => {
 		global.getDbConnection = function(){
-			let dbPool = new AnyDbQ({ adapter  : 'sqlite3' });
-			return dbPool.getConnection();
+			return createConnection({ adapter  : 'sqlite3' });
 		};
 	});
 
@@ -59,15 +69,9 @@ function testSqliteFile(){
 	}
 
 	function connectToSqlite(pool_params){
-		if(pool_params == null){ pool_params = {}; }
-		return () => {
-			let dbPool = new AnyDbQ({ adapter         : 'sqlite3',
-			                          database        : db_filename,
-			                          min_connections : pool_params.min,
-			                          max_connections : pool_params.max,
-			                        });
-			return dbPool.getConnection();
-		};
+		return () => createConnection({ adapter         : 'sqlite3',
+		                                database        : db_filename,
+		                              }, pool_params);
 	};
 
 	afterEach(deleteDbFile);
@@ -96,16 +100,16 @@ function testMysql(){
 	if(db_password === undefined){ db_password = '';          }
 	if(db_name     === undefined){ db_name = 'any_db_q_test'; }
 
-	//:TODO: support env vars for host, user, etc?
+	//:TODO: support env vars for host, user, etc? Also change in get-queryable-type.js
 
 	// Recreate the test table before every test to avoid leaking state between tests
 	beforeEach((done) => {
-		let dbPool = new AnyDbQ({ adapter  : 'mysql',
-		                          host     : 'localhost',
-		                          user     : 'root',
-		                          password : db_password,
-		                        });
-		dbPool.getConnection()
+		let connection = AnyDb.createConnection({ adapter  : 'mysql',
+		                                          host     : 'localhost',
+		                                          user     : 'root',
+		                                          password : db_password,
+		                                        });
+		new AnyDbQ(connection)
 			.query('DROP DATABASE IF EXISTS ' + db_name + ';')
 			.query('CREATE DATABASE ' + db_name)
 			.query('USE ' + db_name)
@@ -115,18 +119,12 @@ function testMysql(){
 	});
 
 	function connectToMysql(pool_params){
-		if(pool_params == null){ pool_params = {}; }
-		return () => {
-			let dbPool = new AnyDbQ({ adapter         : 'mysql',
-			                          host            : 'localhost',
-			                          user            : 'root',
-			                          password        : db_password,
-			                          database        : db_name,
-			                          min_connections : pool_params.min,
-			                          max_connections : pool_params.max,
-			                        });
-			return dbPool.getConnection();
-		};
+		return () => createConnection({ adapter         : 'mysql',
+		                                host            : 'localhost',
+		                                user            : 'root',
+		                                password        : db_password,
+		                                database        : db_name,
+		                              }, pool_params);
 	}
 
 	describe('STANDALONE', () => {
@@ -143,6 +141,7 @@ function testMysql(){
 /////////////////////////////////////////////////////////
 // Describe block for the entire any-db-q test suite
 describe('AnyDbQ', () => {
+	importTest('get-queryable-type');
 	importTest('connect');
 
 	describe('SQLITE3 IN MEMORY', testSqliteInMemory);

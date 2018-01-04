@@ -43,29 +43,36 @@ global.expectPromiseFails = function(done, promise){
 /// \brief Helper function which sets up an empty 'users' table
 /////////////////////////////////////////////////////////////////////
 global.initUserTable = function(){
+
 	let dbh = getDbConnection();
 
-	let autoincrement_word = '';
-	switch(dbh.getPool().getAdapter()){
-	case 'mysql':
-		autoincrement_word = 'AUTO_INCREMENT';
-		break;
-	case 'sqlite3':
-		break;
-	}
+	return getDbConnection()
+		.getQueryableType()
+		.queryfn((queryable_type) => {
+			let adapter = queryable_type.adapter;
+			let autoincrement_word = '';
+			switch(adapter){
+			case 'mysql':
+				autoincrement_word = 'AUTO_INCREMENT';
+				break;
+			case 'sqlite3':
+				break;
+			default:
+				console.log("Warn: unknown database adapter '" + adapter + "', initUserTable may fail");
+				console.log(dbh._queryable);
+			}
 
-	return dbh.query(
-		`CREATE TABLE user (
-			  id       INTEGER      PRIMARY KEY ` + autoincrement_word + ',' +
-		`   username varchar(255) NOT NULL,
-				password varchar(255) NOT NULL
-		);`
-	).then((results) => {
+			return `CREATE TABLE user (
+			               id       INTEGER      PRIMARY KEY ` + autoincrement_word + ',' +
+				     `       username varchar(255) NOT NULL,
+				             password varchar(255) NOT NULL
+		          );`;
+		}).then((results) => {
 			expect(results             ).does.exist;
 			expect(results.lastInsertId).is.not.ok;
 			expect(results.rowCount    ).to.deep.equal(0);
 			expect(results.rows        ).to.deep.equal([]);
-	});
+		});
 };
 
 global.initUserTableWithUser = function(user){

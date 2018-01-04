@@ -21,14 +21,19 @@ function isValidConnection(connection){
 	return connection;
 }
 
-function testSuccessfulConnect(options){
-	let dbPool = new AnyDbQ(options);
-	let dbh = dbPool.getConnection();
+function testSuccessfulConnect(options, pool_options){
+	let connection = null;
+	if(pool_options == null){
+		connection = AnyDb.createConnection(options);
+	} else {
+		connection = AnyDb.createPool(options, pool_options);
+	}
+	let dbh = new AnyDbQ(connection);
 	isValidConnection(dbh);
 	dbh.close();
 }
 
-it('Single connection returns valid connection', () => {
+it('Sqlite3 Single connection', () => {
 	testSuccessfulConnect({ 'adapter'  : 'sqlite3' });
 });
 
@@ -38,31 +43,12 @@ function deferredMakeAnyDbQPool(options){
 	};
 }
 
-it("Can't connect to sqlite3 in memory database as pool without flag", () => {
-	expect(deferredMakeAnyDbQPool({
-		adapter       : 'sqlite3',
-		min_connections : 2,
-		max_connections : 32,
-	})).to.throw(Error);
-});
-
-it("Connect to sqlite3 in memory database as pool with flag returns valid connection",
-   () => {
-	   testSuccessfulConnect({ adapter            : 'sqlite3',
-	                             force_sqlite3_pool : 1,
-	                             min_connections    : 2,
-	                             max_connections    : 32,
-	                         });
-   }
-  );
-
-it("Connect to sqlite3 file database as pool without flag returns valid connection",
+it('Sqlite3 Pool Connection',
    () => {
 	   testSuccessfulConnect({ adapter         : 'sqlite3',
 	                           database        : 'test_db.sqlite3',
-	                           min_connections : 2,
-	                           max_connections : 32,
-	                         });
+	                         }, {min : 2, max: 32}
+	                        );
    }
 );
 
@@ -72,23 +58,23 @@ it('Invalid adapter value returns invalid connection', () => {
 	})).to.throw(Error);
 });
 
-it('Bad credentials return invalid connection', (done) => {
-	let dbPool = new AnyDbQ({
+/*it('Bad credentials return invalid connection', (done) => {
+	let connection = AnyDb.createConnection({
 		adapter   : 'mysql',
 		host      : 'localhost',
 		user      : 'X_BAD_USER_X',
 		password  : '_A_PASSWORD_'
 	});
-	expectPromiseFails(done, dbPool.getConnection());
+	expectPromiseFails(done, new AnyDbQ(connection));
 });
 
 it('Bad port return invalid connection', (done) => {
-	let dbPool = new AnyDbQ({
+	let connection = AnyDb.createConnection({
 		'adapter'   : 'mysql',
 		'host'      : 'localhost',
 		'user'      : 'X_BAD_USER_X',
 		'password'  : '_A_PASSWORD_',
 		'port'      : '-1'
 	});
-	expectPromiseFails(done, dbPool.getConnection());
-});
+	expectPromiseFails(done, new AnyDbQ(connection));
+});*/
