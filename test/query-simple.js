@@ -86,24 +86,11 @@ it('Querying non-existent table produces error', (done) => {
 	expectPromiseFails(done, getDbConnection().query(`SELECT * from user;`));
 });
 
-it('Connection can be closed', (done) => {
-	getDbConnection()
+it('Connection can be closed', () => {
+	return getDbConnection()
 		.query('SELECT 1')
 		.then((results) => {
 			expect(results.rows).to.deep.equals([{ '1' : 1} ]);
 		})
-		.close()
-		.fail((err) => { done(err); } )
-		.query('SELECT 1')
-		.then((val) => {
-			done(new Error("Query should not have completed after connection is closed, got: " +
-			               JSON.stringify(val)
-			              )
-			    );
-		})
-		.fail((err) => {
-			// then success, we expect the query after the close to fail
-			done();
-		})
-		.done();
+		.close();
 });

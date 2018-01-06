@@ -46,12 +46,11 @@ global.initUserTable = function(){
 
 	let dbh = getDbConnection();
 
-	return getDbConnection()
+	return dbh
 		.getQueryableType()
-		.queryfn((queryable_type) => {
-			let adapter = queryable_type.adapter;
+		.then((type) => {
 			let autoincrement_word = '';
-			switch(adapter){
+			switch(type.adapter){
 			case 'mysql':
 				autoincrement_word = 'AUTO_INCREMENT';
 				break;
@@ -61,13 +60,14 @@ global.initUserTable = function(){
 				console.log("Warn: unknown database adapter '" + adapter + "', initUserTable may fail");
 				console.log(dbh._queryable);
 			}
-
-			return `CREATE TABLE user (
-			               id       INTEGER      PRIMARY KEY ` + autoincrement_word + ',' +
-				     `       username varchar(255) NOT NULL,
-				             password varchar(255) NOT NULL
-		          );`;
-		}).then((results) => {
+			return dbh.query(`CREATE TABLE user (
+			                         id       INTEGER      PRIMARY KEY ` + autoincrement_word + ',' +
+			                 `       username varchar(255) NOT NULL,
+				                       password varchar(255) NOT NULL
+		                   );`
+			                );
+		})
+		.then((results) => {
 			expect(results             ).does.exist;
 			expect(results.lastInsertId).is.not.ok;
 			expect(results.rowCount    ).to.deep.equal(0);

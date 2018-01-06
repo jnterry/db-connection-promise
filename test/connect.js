@@ -28,14 +28,11 @@ function testSuccessfulConnect(options, pool_options){
 	} else {
 		connection = AnyDb.createPool(options, pool_options);
 	}
-	let dbh = new AnyDbQ(connection);
-	isValidConnection(dbh);
-	dbh.close();
+	return AnyDbQ(connection, (dbh) => {
+		isValidConnection(dbh);
+		return dbh.close();
+	});
 }
-
-it('Sqlite3 Single connection', () => {
-	testSuccessfulConnect({ 'adapter'  : 'sqlite3' });
-});
 
 function deferredMakeAnyDbQPool(options){
 	return () => {
@@ -43,12 +40,16 @@ function deferredMakeAnyDbQPool(options){
 	};
 }
 
+it('Sqlite3 Single connection', () => {
+	return testSuccessfulConnect({ 'adapter'  : 'sqlite3' });
+});
+
 it('Sqlite3 Pool Connection',
    () => {
-	   testSuccessfulConnect({ adapter         : 'sqlite3',
-	                           database        : 'test_db.sqlite3',
-	                         }, {min : 2, max: 32}
-	                        );
+	   return testSuccessfulConnect({ adapter         : 'sqlite3',
+	                                  database        : 'test_db.sqlite3',
+	                                }, {min : 2, max: 32}
+	                               );
    }
 );
 

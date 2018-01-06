@@ -15,22 +15,23 @@ var pool = AnyDb.createPool({
 	'database' : 'any_db_q_example_01',
 }, {min: 2, max: 10});
 
-let dbh = new AnyDbQ(pool);
+let dbh = AnyDbQ(pool);
 
-dbh.fail((err) => {
-	console.error("Failed to connect to database");
-	console.dir(err);
-	process.exit(1);
-});
-
-dbh.query("SELECT * FROM email")
+dbh
+	.fail((err) => {
+		console.error("Failed to connect to database");
+		console.dir(err);
+		process.exit(1);
+	})
+	.query("SELECT * FROM email")
 	.then((results) => {
 		console.log("Got results from database!");
 		console.log("Row count: " +  results.rowCount);
 		console.log("Rows:");
 		console.dir(results.rows);
-	});
-
-dbh.close();
-
-pool.close();
+	})
+	.close()
+	.then(() => {
+		pool.close();
+	})
+	.done();

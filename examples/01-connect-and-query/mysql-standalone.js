@@ -7,7 +7,7 @@ let AnyDb  = require('any-db');
 
 let AnyDbQ = require('../../any-db-q');
 
-var pool = AnyDb.createConnection({
+var conn = AnyDb.createConnection({
 	'adapter'  : 'mysql',
 	'host'     : 'localhost',
 	'user'     : 'root',
@@ -15,20 +15,23 @@ var pool = AnyDb.createConnection({
 	'database' : 'any_db_q_example_01',
 });
 
-let dbh = new AnyDbQ(pool);
+let dbh = AnyDbQ(conn);
 
-dbh.fail((err) => {
-	console.error("Failed to connect to database");
-	console.dir(err);
-	process.exit(1);
-});
-
-dbh.query("SELECT * FROM email")
+dbh
+	.fail((err) => {
+		console.error("Failed to connect to database");
+		console.dir(err);
+		process.exit(1);
+	})
+	.query("SELECT * FROM email")
 	.then((results) => {
 		console.log("Got results from database!");
 		console.log("Row count: " +  results.rowCount);
 		console.log("Rows:");
 		console.dir(results.rows);
-	});
-
-dbh.close();
+	})
+	.close()
+	.then(() => {
+		console.log("Database connection has been closed");
+	})
+	.done();

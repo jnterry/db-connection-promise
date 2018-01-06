@@ -44,197 +44,83 @@ function _doCloseConnection(dbh){
 	return defer.promise;
 }
 
-function ConnectionPromise(queryable){
-	let defer = Q.defer();
+function ConnectionPromise(queryable, promise){
+	this._promise   = promise;
 
-	this._queryable = null;
-	this._promise    = defer.promise;
+	if(queryable.constructor === ConnectionPromise){
+		// Ensure optional methods attached to old ConnectionPromise
+		// carry forward to the new one
+		this.close      = queryable.close;
+		this.rollback   = queryable.rollback;
+		this.commit     = queryable.commit;
 
-	let type = ConnectionPromise.getQueryableType(queryable);
-	if(type.type == null || type.adapter == null){
-		let err = new Error("Unknown queryable type, cannot create ConnectionPromise");
-		defer.reject(err);
-		throw err;
-	}
-
-	switch(type.type) {
-	case 'pool':
-		queryable.acquire((err, conn) => {
-			if(err){
-				defer.reject(err);
-				return;
-			}
-
-			this._queryable = conn;
-			defer.resolve(conn);
-		});
-
-		this.close = function() {
-			this._promise = this._promise.then(() => {
-				if(this._queryable == null){
-					// :TODO: should this be an error?
-					// Note that done() calls this method -> we don't want
-					// to make .close().done() cause error
-					// But not sure if it works for done() to do check,
-					// since both methods will try to assign value to this._promise
-					return;
-				}
-				queryable.release(this._queryable);
-				this._queryable = null;
-			});
-			return this;
-		};
-		break;
-	case 'transaction':
+		this._queryable = queryable._queryable;
+	} else {
 		this._queryable = queryable;
-
-		let wrapper = (func_name) => {
-			return () => {
-				this._promise = this._promise.then(() => {
-					let defer = Q.defer();
-					queryable[func_name]((err) => {
-						if(err){
-							defer.reject(err);
-						} else {
-							defer.resolve(true);
-						}
-					});
-					return defer.promise;
-				});
-				return this;
-			};
-		};
-
-		this.commit   = wrapper('commit'  );
-		this.rollback = wrapper('rollback');
-
-		defer.resolve(queryable);
-		break;
-	case 'connection':
-		this._queryable = queryable;
-		this.close = function () {
-			this._promise = this._promise.then(() => {
-				if(this._queryable == null){
-					// :TODO: should this be an error?
-					// Note that done() calls this method -> we don't want
-					// to make .close().done() cause error
-					// But not sure if it works for done() to do check,
-					// since both methods will try to assign value to this._promise
-					return 1;
-				}
-				return _doCloseConnection(this._queryable);
-			}).then(() => {
-				this._queryable = null;
-			});
-			return this;
-		};
-		defer.resolve(queryable);
-		break;
-	default:
-		let error = "Unknown queryable type - cannot create ConnectionPromise";
-		defer.reject(error);
-		throw error;
 	}
 };
 
 ConnectionPromise.prototype.query = function(){
-		let args = arguments; // capture arguments to function
-		this._promise = this._promise.then(() =>
-			Q.nfapply(this._queryable.query.bind(this._queryable), args)
-		);
-		return this;
+	let args = arguments; // capture arguments to function
+	return new ConnectionPromise(this, this._promise.then(() => {
+		return Q.nfapply(this._queryable.it.query.bind(this._queryable.it), args);
+	}));
 };
 
-/////////////////////////////////////////////////////////////////////
-/// \brief Occasionally you need to use the result of a previous promised
-/// step to generate the query string. This function can be used to do that
-/// \param query_generator Function which is passed the result of the previous
-/// promise in the chain, should return either a string representing the query,
-/// or an array consisting of the arguments to the query (first being the query
-/// string, next being an array of bound parameters)
-/////////////////////////////////////////////////////////////////////
-ConnectionPromise.prototype.queryfn = function(query_generator) {
-	this._promise = this._promise.then((val) => {
-		let query_args = query_generator(val);
 
-		if(!Array.isArray(query_args)){
-			query_args = [ query_args ];
-		}
-		return Q.nfapply(this._queryable.query.bind(this._queryable), query_args);
-	});
-	return this;
-};
-
-ConnectionPromise.prototype.fail = function(onRejected){
-	this._promise = this._promise.fail(onRejected);
-	return this;
+// :TODO: can we generically generate these methods for all methods
+// attached to a Q promise?
+ConnectionPromise.prototype.fail = function(){
+	return new ConnectionPromise(this, this._promise.fail(...arguments));
 };
 ConnectionPromise.prototype.catch = ConnectionPromise.prototype.catch;
 
-ConnectionPromise.prototype.then = function(onFulfilled, onRejected, onProgress){
-	this._promise = this._promise.then(onFulfilled, onRejected, onProgress);
-	return this;
+ConnectionPromise.prototype.then = function(){
+	return new ConnectionPromise(this, this._promise.then(...arguments));
 };
 
 /////////////////////////////////////////////////////////////////////
-/// \brief Closes the connection (if still open), then calls done on the
-/// internal promise.
-/// \note This object becomes invalidated after calling this method
-/// \return The internal promise representing the chain of actions to
-/// be performed with the connection.
+/// \brief Closes the connection (if still open), then behaves as Q.done()
 /////////////////////////////////////////////////////////////////////
-ConnectionPromise.prototype.done = function(onFulfilled, onRejected, onProgress){
-	if(typeof this.close === 'function'){
-		this.close();
-	}
-	// :TODO: should we auto commit/rollback a transaction?
-	//        -> if so need to keep track of if committed/rolledback, since can't
-	//           do it twice
-	this._promise = this._promise
-		.done(onFulfilled, onRejected, onProgress);
-
-	return this._promise;
+ConnectionPromise.prototype.done = function(){
+	return this._promise.then(() => {
+		if(typeof this.close === 'function' &&
+		   this._queryable.it   !=  null){
+			return this.close().promise();
+		}
+		// :TODO: should we auto commit/rollback a transaction?
+		//        -> if so need to keep track of if committed/rolledback, since can't
+		//           do it twice
+	}).done(...arguments)
 };
 
 ConnectionPromise.prototype.transaction = function(operations){
-	this._promise = this._promise.then(() => {
-		let defer = Q.defer();
+	return new ConnectionPromise(this,
+		this._promise.then(() => {
+			let defer = Q.defer();
 
-		begin_tx(this._queryable, { autoRollback: false }, (err, tx) => {
-			if(err){
-				defer.reject(err);
-				return;
-			}
+			begin_tx(this._queryable.it, { autoRollback: false }, (err, tx) => {
+				if(err){
+					defer.reject(err);
+					return;
+				}
 
-			let dbh_tx = new ConnectionPromise(tx);
+				let dbh_tx = makeConnectionPromise(tx);
 
-			let doAction = (func_name) => {
-				tx[func_name]((err) => {
-					if(err){ defer.reject(err);   }
-					else   { defer.resolve(true); }
-				});
-			};
+				let manually_closed = false;
+				tx.on('close', () => { manually_closed = true; });
+				operations(dbh_tx)
+					.then(() => { if(!manually_closed){ return dbh_tx.commit  (); } },
+					      () => { if(!manually_closed){ return dbh_tx.rollback(); } }
+					     )
+					.done((   ) => { defer.resolve();   },
+					      (err) => { defer.reject(err); }
+					     );
+			});
 
-			let manually_closed = false;
-			tx.on('close', () => { manually_closed = true; });
-			let operation = '';
-			operations(dbh_tx)
-				.then(() => { operation = 'commit';   },
-				      () => { operation = 'rollback'; }
-				     )
-				.then(() => {
-					if(!manually_closed){
-						doAction(operation);
-					} else {
-						defer.resolve(true);
-					}
-				})
-				.done();
-		});
-
-		return defer.promise;
-	});
-	return this;
+			return defer.promise;
+		})
+	);
 };
 
 /////////////////////////////////////////////////////////////////////
@@ -260,7 +146,7 @@ ConnectionPromise.prototype.promise = function(){
 /// }
 /// null values will be used when the type cannot be determined
 /////////////////////////////////////////////////////////////////////
-ConnectionPromise.getQueryableType = function(queryable) {
+function getQueryableType(queryable) {
 	let result = { type: null, adapter: null };
 
 	if(queryable == null                    ) { return result; }
@@ -298,9 +184,157 @@ ConnectionPromise.getQueryableType = function(queryable) {
 /////////////////////////////////////////////////////////////////////
 ConnectionPromise.prototype.getQueryableType = function() {
 	this._promise = this._promise.then(() => {
-		return ConnectionPromise.getQueryableType(this._queryable);
+		return getQueryableType(this._queryable.it);
 	});
 	return this;
 };
 
-module.exports = ConnectionPromise;
+function makeConnectionPromise(queryable){
+	let type = getQueryableType(queryable);
+	if(type.type == null || type.adapter == null){
+		throw new Error("Unknown queryable type, cannot create ConnectionPromise");
+	}
+
+	let deferred = Q.defer();
+
+
+	// The ConnectionPromise's ._queryable is actually an object of type:
+	// { it: <queryable> }
+	//
+	// Consider code like the following:
+	// makeConnectionPromise(conn)
+	//   .query(() => { ... })
+	//   .then (() => { ... })
+	// query and then return a new ConnectionPromise (just as .then() should
+	// return a new Promise according to the Promise/A spec, rather than mutating
+	// the original)
+	//
+	// Note however that the query and then functions are executed by the
+	// code building the promise, and thus may occur before the initial
+	// promise "makeConnectionPromise" resolves. This only affects making a
+	// ConnectionPromise from a pool, since that is an async task.
+	// When we create a new ConnectionPromise we copy the _queryable from
+	// the parent. If this is done before we have filled in _queryable with
+	// the correct value we would copy the value of null into the ConnectionPromise
+	// returned from query and then. Hence when we execute the code in the response
+	// handlers we get errors as they try to operate on a null queryable.
+	// Instead we store a reference to an object which contains the queryable instance.
+	// Hence once we actually get access to the queryable we set ._queryable.it to
+	// the correct value and all ConnectionPromises made from the original one here
+	// will be automatically updated.
+	// This would be like having a double pointer in C, so that we can patch up
+	// the inner pointer to a new value from a single point of code, eg:
+	// Queryable*  queryable = nullptr;
+	// Queryable** queryable_ref = &queryable;
+	// // later on
+	// *queryable_ref = &actual_queryable;
+	// But any copies of queryable_ref we have made will also now refer to
+	// actual_queryable when double dereferenced.
+	//
+	// Alternative solutions would be to have this function either return a
+	// promise which resolves to a ConnectionPromise, or take a callback, but
+	// then all code using the ConnectionPromise has to be wrapped up 1 level
+	// deeper in callbacks, which is undesirable.
+	// Note also returning a Promise which resolves to a ConnectionPromise
+	// is not actually possible, since if we try to .resolve(x) where x is a thenable
+	// the promise spec states we should resolve with the final result of x.
+	// Hence this method would have to return a promise which resolves to an object
+	// which contains the ConnectionPromise which is not very intuitive for users
+	// of the library.
+	//
+	// Note that ensuring .then and .query return new ConnectionPromise instances
+	// rather than just mutating the internal state is important as it enables code
+	// such as the following:
+	// dbh.query("...")
+	//    .then((result) => {
+	//   if(result[0].thing){
+	//     return dbh.query(...);
+	//   } else {
+	//     return dbh.query(...).then(...);
+	//   }
+	// }
+	// IE: we can call methods of dbh inside a response handler
+	// being called by dbh.then. If we mutate the state of dbh inside then/query etc
+	// this will cause strange bugs as the state is overwritten by one or
+	// the other call to then.
+	// Having this dynamic generation of query strings/behaviour is required
+	// to support many operations. This was previously solved by the hacky
+	// queryfn which generated the string to use as a query - but this
+	// didn't allow different control flows, just different queries.
+	// See: https://github.com/jnterry/any-db-q/blob/970b45b79009044962cb792365021171aa43f865/any-db-q.js#L156
+	let result = new ConnectionPromise({it: null}, deferred.promise);
+
+	switch(type.type) {
+	case 'pool': {
+		queryable.acquire((err, conn) => {
+			if(err){
+				deferred.reject(err);
+				return;
+			}
+
+			result._queryable.it = conn;
+			deferred.resolve();
+		});
+
+		result.close = function() {
+			// Close method returns a standard promise, since we cannot continue
+			// to use the connection after a close
+			return this._promise.then(() => {
+				if(this._queryable.it == null){ return; }
+				queryable.release(this._queryable.it);
+				this._queryable.it = null;
+			});
+			return this;
+		};
+
+		break;
+	}
+	case 'transaction': {
+		result._queryable.it = queryable;
+
+		let wrapper = (func_name) => {
+			return function() {
+				return new ConnectionPromise(this,
+					this._promise.then(() => {
+						let defer = Q.defer();
+						queryable[func_name]((err) => {
+							if(err){
+								defer.reject(err);
+							} else {
+								defer.resolve();
+							}
+						});
+						return defer.promise;
+					})
+				);
+			};
+		};
+
+		result.commit   = wrapper('commit'  );
+		result.rollback = wrapper('rollback');
+
+		deferred.resolve();
+		break;
+	}
+	case 'connection': {
+		result._queryable.it = queryable;
+		result.close = function () {
+			return this._promise.then(() => {
+				return _doCloseConnection(this._queryable.it);
+			});
+		};
+		deferred.resolve();
+		break;
+	}
+	default:
+		let error = new Error("Unknown queryable type - cannot create ConnectionPromise");
+		deferred.reject(error);
+		throw error;
+	}
+
+	return result;
+}
+
+makeConnectionPromise.getQueryableType = getQueryableType;
+
+module.exports = makeConnectionPromise;
