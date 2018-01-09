@@ -12,62 +12,70 @@
 require('./common.js');
 
 let AnyDbQ = require('../any-db-q');
+let AnyDb  = require('any-db');
 
 function isValidConnection(connection){
 	expect(connection).to.exist;
 	expect(connection.query).to.be.a('function');
+	expect(connection.close).to.be.a('function');
 	return connection;
 }
 
-it('Single connection returns valid connection', () => {
-	return AnyDbQ({
-		'adapter'  : 'sqlite3',
-	}).then(isValidConnection).then((dbh) => { dbh.close() });
+function testSuccessfulConnect(options, pool_options){
+	let connection = null;
+	if(pool_options == null){
+		connection = AnyDb.createConnection(options);
+	} else {
+		connection = AnyDb.createPool(options, pool_options);
+	}
+	return AnyDbQ(connection, (dbh) => {
+		isValidConnection(dbh);
+		return dbh.close();
+	});
+}
+
+function deferredMakeAnyDbQPool(options){
+	return () => {
+		return new AnyDbQ(options);
+	};
+}
+
+it('Sqlite3 Single connection', () => {
+	return testSuccessfulConnect({ 'adapter'  : 'sqlite3' });
 });
 
-it("Can't connect to sqlite3 in memory database as pool without flag", (done) => {
-	expectPromiseFails(done,
-	                   AnyDbQ({ 'adapter' : 'sqlite3', },
-	                          { min : 2, max : 32 }
-	                         )
-	                  );
-});
-
-it("Connect to sqlite3 in memory database as pool with flag returns valid connection",
+it('Sqlite3 Pool Connection',
    () => {
-	   return AnyDbQ({ 'adapter' : 'sqlite3', force_sqlite3_pool: 1},
-	                 { min : 2, max : 32 }
-	                ).then(isValidConnection).then((dbh) => { dbh.close() });
-   }
-  );
-
-it("Connect to sqlite3 file database as pool without flag returns valid connection",
-   () => {
-	   return AnyDbQ({ 'adapter' : 'sqlite3', database : 'test_db.sqlite3'},
-	                 { min : 2, max : 32 }
-	                ).then(isValidConnection).then((dbh) => { dbh.close() });
+	   return testSuccessfulConnect({ adapter         : 'sqlite3',
+	                                  database        : 'test_db.sqlite3',
+	                                }, {min : 2, max: 32}
+	                               );
    }
 );
 
-it('Invalid adapter value returns invalid connection', (done) => {
-	expectPromiseFails(done, AnyDbQ({'adapter' : 'fake'}));
+it('Invalid adapter value returns invalid connection', () => {
+	expect(deferredMakeAnyDbQPool({
+		adapter         : 'fake',
+	})).to.throw(Error);
 });
 
-it('Bad credentials return invalid connection', (done) => {
-	expectPromiseFails(done, AnyDbQ({
-		'adapter'   : 'mysql',
-		'host'      : 'localhost',
-		'user'      : 'X_BAD_USER_X',
-		'password'  : '_A_PASSWORD_'
-	}));
+/*it('Bad credentials return invalid connection', (done) => {
+	let connection = AnyDb.createConnection({
+		adapter   : 'mysql',
+		host      : 'localhost',
+		user      : 'X_BAD_USER_X',
+		password  : '_A_PASSWORD_'
+	});
+	expectPromiseFails(done, new AnyDbQ(connection));
 });
 
 it('Bad port return invalid connection', (done) => {
-	expectPromiseFails(done, AnyDbQ({
+	let connection = AnyDb.createConnection({
 		'adapter'   : 'mysql',
 		'host'      : 'localhost',
 		'user'      : 'X_BAD_USER_X',
 		'password'  : '_A_PASSWORD_',
 		'port'      : '-1'
-	}));
-});
+	});
+	expectPromiseFails(done, new AnyDbQ(connection));
+});*/

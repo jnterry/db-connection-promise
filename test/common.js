@@ -20,7 +20,8 @@ let AnyDbQ = require('../any-db-q');
 // which sets getDbConnection to test more complex configurations
 if(global.getDbConnecion === undefined){
 	global.getDbConnection = function(){
-		return AnyDbQ({ adapter: 'sqlite3'});
+		let dbPool = new AnyDbQ({ adapter: 'sqlite3'});
+		return dbPool.getConnection();
 	};
 }
 
@@ -42,30 +43,36 @@ global.expectPromiseFails = function(done, promise){
 /// \brief Helper function which sets up an empty 'users' table
 /////////////////////////////////////////////////////////////////////
 global.initUserTable = function(){
-	return getDbConnection().then((dbh) => {
-		let autoincrement_word = '';
-		switch(dbh.getAdapter()){
-		case 'mysql':
-			autoincrement_word = 'AUTO_INCREMENT';
-			break;
-		case 'sqlite3':
-			break;
-		}
-		return dbh.query(
-			`CREATE TABLE user (
-				id       INTEGER      PRIMARY KEY ` + autoincrement_word + ',' +
-			`   username varchar(255) NOT NULL,
-				password varchar(255) NOT NULL
-			);`
-		).then((results) => {
+
+	let dbh = getDbConnection();
+
+	return dbh
+		.getQueryableType()
+		.then((type) => {
+			let autoincrement_word = '';
+			switch(type.adapter){
+			case 'mysql':
+				autoincrement_word = 'AUTO_INCREMENT';
+				break;
+			case 'sqlite3':
+				break;
+			default:
+				console.log("Warn: unknown database adapter '" + adapter + "', initUserTable may fail");
+				console.log(dbh._queryable);
+			}
+			return dbh.query(`CREATE TABLE user (
+			                         id       INTEGER      PRIMARY KEY ` + autoincrement_word + ',' +
+			                 `       username varchar(255) NOT NULL,
+				                       password varchar(255) NOT NULL
+		                   );`
+			                );
+		})
+		.then((results) => {
 			expect(results             ).does.exist;
 			expect(results.lastInsertId).is.not.ok;
 			expect(results.rowCount    ).to.deep.equal(0);
 			expect(results.rows        ).to.deep.equal([]);
-
-			return dbh; // make dbh accessible to calling code
 		});
-	});
 };
 
 global.initUserTableWithUser = function(user){
@@ -73,25 +80,20 @@ global.initUserTableWithUser = function(user){
 		user = { id: 1, username : 'Bob', password: 'password' };
 	}
 
-	return initUserTable()
-		.then((dbh) => {
-			return dbh.query(`INSERT INTO user VALUES (?,?,?)`,
-			                 [user.id, user.username, user.password])
-				.then((results) => {
-					expect(results         ).does.exist;
-					expect(results.rowCount).is.deep.equal(1);
-					expect(results.rows    ).is.deep.equal([]);
+	let dbh = initUserTable();
 
-					return dbh.query('SELECT * FROM user');
-				})
-				.then((results) => {
-					expect(results             ).does.exist;
-					expect(results.lastInsertId).is.not.ok;
-					expect(results.rowCount    ).is.deep.equal(1);
-					expect(results.rows[0]     ).is.deep.equal(user);
-
-					return dbh; // make dbh accessible to calling code
-				});
+	return dbh.query(`INSERT INTO user VALUES (?,?,?)`,
+	                 [user.id, user.username, user.password])
+		.then((results) => {
+			expect(results         ).does.exist;
+			expect(results.rowCount).is.deep.equal(1);
+			expect(results.rows    ).is.deep.equal([]);
+		})
+		.query('SELECT * FROM user')
+		.then((results) => {
+			expect(results             ).does.exist;
+			expect(results.lastInsertId).is.not.ok;
+			expect(results.rowCount    ).is.deep.equal(1);
+			expect(results.rows[0]     ).is.deep.equal(user);
 		});
-
 };
