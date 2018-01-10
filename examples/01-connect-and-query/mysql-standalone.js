@@ -1,11 +1,14 @@
 #!/usr/bin/env node
-//
-// Simple example of connecting to a mysql database
-// and running a query
+////////////////////////////////////////////////////////////////////////////
+///                    Part of db-connection-promise                     ///
+////////////////////////////////////////////////////////////////////////////
+/// \file mysql-standalone.js
+///
+/// \brief Simple example of connecting to a mysql database and running a query
+////////////////////////////////////////////////////////////////////////////
 
-let AnyDb  = require('any-db');
-
-let AnyDbQ = require('../../any-db-q');
+let AnyDb               = require('any-db');
+let DbConnectionPromise = require('../../db-connection-promise');
 
 var conn = AnyDb.createConnection({
 	'adapter'  : 'mysql',
@@ -15,7 +18,7 @@ var conn = AnyDb.createConnection({
 	'database' : 'any_db_q_example_01',
 });
 
-let dbh = AnyDbQ(conn);
+let dbh = DbConnectionPromise(conn);
 
 dbh
 	.fail((err) => {

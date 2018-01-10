@@ -13,7 +13,7 @@ services:
   - mysql
 
 env:
-  - ANY_DB_Q_TEST_MYSQL=1 ANY_DB_Q_TEST_MYSQL_DATABASE=any_db_q_test
+  - DBCP_TEST_MYSQL=1 DBCP_TEST_MYSQL_DATABASE=db_connection_promise_test
 
 # Send coverage data to Coveralls
 after_script: "cat coverage/lcov.info | node_modules/coveralls/bin/coveralls.js"

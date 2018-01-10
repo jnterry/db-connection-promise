@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////
-///                       Part of any-db-q                               ///
+///                    Part of db-connection-promise                     ///
 ////////////////////////////////////////////////////////////////////////////
 /// \file get-queryable-type.js
 /// \author Jamie Terry
@@ -9,14 +9,14 @@
 
 global.expect = require('chai').expect;
 
-let AnyDbQ   = require('../any-db-q');
-let AnyDb    = require('any-db');
-let begin_tx = require('any-db-transaction');
+let DbConnectionPromise = require('../db-connection-promise');
+let AnyDb               = require('any-db');
+let begin_tx            = require('any-db-transaction');
 
 describe("Bad Queryables", () => {
 	function testBad(name, val){
 		it(name, () => {
-		let result = AnyDbQ.getQueryableType(val);
+		let result = DbConnectionPromise.getQueryableType(val);
 		expect(result.type   ).equal(null);
 		expect(result.adapter).equal(null);
 		});
@@ -36,14 +36,14 @@ function testAdapter(suite_name, options){
 	describe(suite_name, () => {
 		it("connection", () => {
 			let conn = AnyDb.createConnection(options);
-			let val  = AnyDbQ.getQueryableType(conn);
+			let val  = DbConnectionPromise.getQueryableType(conn);
 			expect(val.type   ).equal('connection');
 			expect(val.adapter).equal(options.adapter);
 		});
 
 		it("pool {1,1}", () => {
 			let conn = AnyDb.createPool(options, {min: 1, max: 1});
-			let val  = AnyDbQ.getQueryableType(conn);
+			let val  = DbConnectionPromise.getQueryableType(conn);
 			expect(val.type   ).equal('pool');
 			expect(val.adapter).equal(options.adapter);
 			conn.close();
@@ -51,7 +51,7 @@ function testAdapter(suite_name, options){
 
 		it("pool {5,10}", () => {
 			let conn = AnyDb.createPool(options, {min: 5, max: 10});
-			let val  = AnyDbQ.getQueryableType(conn);
+			let val  = DbConnectionPromise.getQueryableType(conn);
 			expect(val.type   ).equal('pool');
 			expect(val.adapter).equal(options.adapter);
 			conn.close();
@@ -61,7 +61,7 @@ function testAdapter(suite_name, options){
 			let pool = AnyDb.createPool(options, {min: 5, max: 10});
 			pool.acquire((err, conn) => {
 				if(err){ done(err); return; }
-				let val  = AnyDbQ.getQueryableType(conn);
+				let val  = DbConnectionPromise.getQueryableType(conn);
 				expect(val.type   ).equal('connection');
 				expect(val.adapter).equal(options.adapter);
 				pool.release(conn);
@@ -74,7 +74,7 @@ function testAdapter(suite_name, options){
 			let conn = AnyDb.createConnection(options);
 			begin_tx(conn, (err, tx) => {
 				if(err) { done(err); return; }
-				let val  = AnyDbQ.getQueryableType(tx);
+				let val  = DbConnectionPromise.getQueryableType(tx);
 				expect(val.type   ).equal('transaction');
 				expect(val.adapter).equal(options.adapter);
 				done();
@@ -87,7 +87,7 @@ function testAdapter(suite_name, options){
 				if(err) { done(err); return; }
 				begin_tx(tx1, (err, tx2) => {
 					if(err) { done(err); return; }
-					let val  = AnyDbQ.getQueryableType(tx2);
+					let val  = DbConnectionPromise.getQueryableType(tx2);
 					expect(val.type   ).equal('transaction');
 					expect(val.adapter).equal(options.adapter);
 					done();
@@ -99,7 +99,7 @@ function testAdapter(suite_name, options){
 			let pool = AnyDb.createPool(options, {min: 5, max: 10});
 			begin_tx(pool, (err, tx) => {
 				if(err) { done(err); return; }
-				let val  = AnyDbQ.getQueryableType(tx);
+				let val  = DbConnectionPromise.getQueryableType(tx);
 				expect(val.type   ).equal('transaction');
 				expect(val.adapter).equal(options.adapter);
 				pool.close();
@@ -113,7 +113,7 @@ function testAdapter(suite_name, options){
 				if(err) { done(err); return; }
 				begin_tx(tx1, (err, tx2) => {
 					if(err) { done(err); return; }
-					let val  = AnyDbQ.getQueryableType(tx2);
+					let val  = DbConnectionPromise.getQueryableType(tx2);
 					expect(val.type   ).equal('transaction');
 					expect(val.adapter).equal(options.adapter);
 					pool.close();
@@ -127,7 +127,7 @@ function testAdapter(suite_name, options){
 			pool.acquire((err, conn) => {
 				begin_tx(conn, (err, tx) => {
 					if(err) { done(err); return; }
-					let val  = AnyDbQ.getQueryableType(tx);
+					let val  = DbConnectionPromise.getQueryableType(tx);
 					expect(val.type   ).equal('transaction');
 					expect(val.adapter).equal(options.adapter);
 				});
@@ -145,7 +145,7 @@ function testAdapter(suite_name, options){
 					if(err) { done(err); return; }
 					begin_tx(tx1, (err, tx2) => {
 						if(err) { done(err); return; }
-						let val  = AnyDbQ.getQueryableType(tx2);
+						let val  = DbConnectionPromise.getQueryableType(tx2);
 						expect(val.type   ).equal('transaction');
 						expect(val.adapter).equal(options.adapter);
 
@@ -162,16 +162,16 @@ function testAdapter(suite_name, options){
 testAdapter("sqlite3 in memory", { adapter: 'sqlite3'} );
 
 
-if(process.env.ANY_DB_Q_TEST_SQLITE_FILE == true){
-	let db_filename = process.env.ANY_DB_Q_TEST_SQLITE_FILE_FILENAME;
+if(process.env.DBCP_TEST_SQLITE_FILE == true){
+	let db_filename = process.env.DBCP_TEST_SQLITE_FILE_FILENAME;
 	if(db_filename === undefined){ db_filename = 'test_db.sqlite3'; }
 
 	testAdapter("sqlite3 file", { adapter: 'sqlite3', database: db_filename } );
 }
 
-if(process.env.ANY_DB_Q_TEST_MYSQL == true){
-	let db_password = process.env.ANY_DB_Q_TEST_MYSQL_PASSWORD;
-	let db_name     = process.env.ANY_DB_Q_TEST_MYSQL_DATABASE;
+if(process.env.DBCP_TEST_MYSQL == true){
+	let db_password = process.env.DBCP_TEST_MYSQL_PASSWORD;
+	let db_name     = process.env.DBCP_TEST_MYSQL_DATABASE;
 
 	if(db_password === undefined){ db_password = '';          }
 	if(db_name     === undefined){ db_name = 'any_db_q_test'; }

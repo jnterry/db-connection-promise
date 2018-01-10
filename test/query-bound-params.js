@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////
-///                       Part of any-db-q                               ///
+///                    Part of db-connection-promise                     ///
 ////////////////////////////////////////////////////////////////////////////
 /// \file query-bound-params.js
 /// \author Jamie Terry
@@ -70,7 +70,7 @@ args is not supported by sqlite3 (get a syntax error parsing the sql)
  - Why does it fail with sqlite3? probably limitation of the database itself
    rather than anything we can fix :(
 it('Can pass array of parameters as placeholder for a group of many', () => {
-	return  AnyDbQ({
+	return  DbConnectionPromise({
 		'adapter'  : 'mysql',
 		'host'     : 'localhost',
 		'user'     : 'root',

@@ -1,11 +1,14 @@
 #!/usr/bin/env node
-//
-// Simple example of connecting to a mysql database
-// and running a query
+////////////////////////////////////////////////////////////////////////////
+///                    Part of db-connection-promise                     ///
+////////////////////////////////////////////////////////////////////////////
+/// \file mysql-pool.js
+///
+/// \brief Simple example of connecting to a mysql database and running a query
+////////////////////////////////////////////////////////////////////////////
 
-let AnyDb  = require('any-db');
-
-let AnyDbQ = require('../../any-db-q');
+let AnyDb               = require('any-db');
+let DbConnectionPromise = require('../../db-connection-promise');
 
 var pool = AnyDb.createPool({
 	'adapter'  : 'mysql',
@@ -15,7 +18,7 @@ var pool = AnyDb.createPool({
 	'database' : 'any_db_q_example_01',
 }, {min: 2, max: 10});
 
-let dbh = AnyDbQ(pool);
+let dbh = DbConnectionPromise(pool);
 
 dbh
 	.fail((err) => {

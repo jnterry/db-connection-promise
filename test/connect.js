@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////
-///                       Part of any-db-q                               ///
+///                    Part of db-connection-promise                     ///
 ////////////////////////////////////////////////////////////////////////////
 /// \file 01-connect.js
 /// \author Jamie Terry
@@ -11,8 +11,8 @@
 
 require('./common.js');
 
-let AnyDbQ = require('../any-db-q');
-let AnyDb  = require('any-db');
+let DbConnectionPromise = require('../db-connection-promise');
+let AnyDb               = require('any-db');
 
 function isValidConnection(connection){
 	expect(connection).to.exist;
@@ -28,16 +28,10 @@ function testSuccessfulConnect(options, pool_options){
 	} else {
 		connection = AnyDb.createPool(options, pool_options);
 	}
-	return AnyDbQ(connection, (dbh) => {
+	return DbConnectionPromise(connection, (dbh) => {
 		isValidConnection(dbh);
 		return dbh.close();
 	});
-}
-
-function deferredMakeAnyDbQPool(options){
-	return () => {
-		return new AnyDbQ(options);
-	};
 }
 
 it('Sqlite3 Single connection', () => {
@@ -53,12 +47,6 @@ it('Sqlite3 Pool Connection',
    }
 );
 
-it('Invalid adapter value returns invalid connection', () => {
-	expect(deferredMakeAnyDbQPool({
-		adapter         : 'fake',
-	})).to.throw(Error);
-});
-
 /*it('Bad credentials return invalid connection', (done) => {
 	let connection = AnyDb.createConnection({
 		adapter   : 'mysql',
@@ -66,7 +54,7 @@ it('Invalid adapter value returns invalid connection', () => {
 		user      : 'X_BAD_USER_X',
 		password  : '_A_PASSWORD_'
 	});
-	expectPromiseFails(done, new AnyDbQ(connection));
+	expectPromiseFails(done, new DbConnectionPromise(connection));
 });
 
 it('Bad port return invalid connection', (done) => {
@@ -77,5 +65,5 @@ it('Bad port return invalid connection', (done) => {
 		'password'  : '_A_PASSWORD_',
 		'port'      : '-1'
 	});
-	expectPromiseFails(done, new AnyDbQ(connection));
+	expectPromiseFails(done, new DbConnectionPromise(connection));
 });*/

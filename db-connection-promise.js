@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////
-///                           Part of any-db-q                           ///
+///                    Part of db-connection-promise                     ///
 ////////////////////////////////////////////////////////////////////////////
-/// \file any-db-q.js
+/// \file db-connection-promise.js
 /// \author Jamie Terry
 /// \date 2017/07/28
 /// \brief Main file for any-db-q, wraps the any-db library to provide an

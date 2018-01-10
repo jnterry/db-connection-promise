@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////
-///                       Part of any-db-q                               ///
+///                    Part of db-connection-promise                     ///
 ////////////////////////////////////////////////////////////////////////////
 /// \file common.js
 /// \author Jamie Terry
@@ -9,7 +9,7 @@
 
 global.expect = require('chai').expect;
 
-let AnyDbQ = require('../any-db-q');
+let DbConnectionPromise = require('../../db-connection-promise');
 
 ////////////////////////////////////////////////////////////////////////////
 // Test suite files obtain a database connection using getDbConnection,
@@ -20,7 +20,7 @@ let AnyDbQ = require('../any-db-q');
 // which sets getDbConnection to test more complex configurations
 if(global.getDbConnecion === undefined){
 	global.getDbConnection = function(){
-		let dbPool = new AnyDbQ({ adapter: 'sqlite3'});
+		let dbPool = new DbConnectionPromise({ adapter: 'sqlite3'});
 		return dbPool.getConnection();
 	};
 }

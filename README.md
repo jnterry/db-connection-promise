@@ -1,8 +1,10 @@
-# any-db-q
+# Db Connection Promise
 
-Simple wrapper around any-db module which converts the interface to be promise based, using the q library.
+This library provides a class "DbConnectionPromise" which can be used to wrap an ([any-db](https://www.npmjs.com/package/any-db)) database connection. This object adheres to the Promises/A+ specification, but provides an additional chainable .query() method which behaves in a similar manner to .then().
 
-[![Build Status](https://travis-ci.org/jnterry/any-db-q.svg?branch=master)](https://travis-ci.org/jnterry/any-db-q) [![Coverage Status](https://coveralls.io/repos/github/jnterry/any-db-q/badge.svg?branch=master)](https://coveralls.io/github/jnterry/any-db-q?branch=master)
+This allows for a clean API for querying databases of any sort.
+
+[![Build Status](https://travis-ci.org/jnterry/db-connection-promise.svg?branch=master)](https://travis-ci.org/jnterry/db-connection-promise) [![Coverage Status](https://coveralls.io/repos/github/jnterry/db-connection-promise/badge.svg?branch=master)](https://coveralls.io/github/jnterry/db-connection-promise?branch=master)
 
 ## WARNING - PRERELEASE
 
@@ -14,6 +16,7 @@ Todo before 1.0.0 release
 - Implement Postgres Tests
 - Test using API in real project rather than just in tests ([nano-orm](https://github.com/jnterry/nano-orm))
 - Better documentation
+- Check ConnectionPromise fully meets the Promises/A+ specification
 - Work out the peerDependency vs dependency stuff (see any-db docs)
 - Grep for :TODO: in code
 - Cleanup of code
@@ -21,21 +24,25 @@ Todo before 1.0.0 release
 ## Usage
 
 ```javascript
-let AnyDbQ = require('any-db-q');
+let conn = AnyDb.createConnection({ adapter: 'sqlite3'});
+let dbh = DbConnectionPromise(conn);
 
-AnyDbQ({ adapter  : 'mysql'
-       , host     : 'localhost'
-       , user     : 'root'
-       , password : 'password'
-       , database : 'test'
-       })
-    .then((dbh) => {
-        return dbh.query('SELECT id, email, password FROM user')
-            .then((results) => {
-                console.log(results.rows[0].id);
-                //...etc...
-        });
-});
+dbh
+	.fail((err) => {
+		console.error("Failed to connect to database");
+		console.dir(err);
+		process.exit(1);
+	})
+	.query("SELECT * FROM user")
+	.then((results) => {
+		console.log("Loaded " + results.rows.length + " users from the database");
+		console.log("First user: " + results.rows[0].username + ", " + results.rows[0].password);
+	})
+	.close()
+	.then(() => {
+		console.log("Database connection has been closed");
+	})
+	.done();
 ```
 
 Full example programs can be found in the /examples directory
@@ -46,7 +53,7 @@ This library, like [any-db](https://www.npmjs.com/package/any-db) upon which it 
 
 For example, mysql supports the keyword [AUTO_INCREMENT](https://dev.mysql.com/doc/refman/5.7/en/example-auto-increment.html) where as sqlite3 does not - instead opting to auto-increments columns [which meet certain criteria](https://stackoverflow.com/a/7906029).
 
-This library makes absolutely *NO* attempt to shield users from these differences; instead the intended use case is that users will pick a particular database and stick with it for the lifetime of their project, however by using any-db-q you can utilise the same q promise based interface regardless of which database you happen to choose.
+This library makes absolutely *NO* attempt to shield users from these differences; instead the intended use case is that users will pick a particular database and stick with it for the lifetime of their project, however by using db-connection-promise you can utilise the same q promise based interface regardless of which database you happen to choose.
 
 ### Supported Adaptors
 

@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////
-///                       Part of any-db-q                               ///
+///                    Part of db-connection-promise                     ///
 ////////////////////////////////////////////////////////////////////////////
 /// \file all.js
 /// \author Jamie Terry
@@ -10,11 +10,11 @@
 
 "use strict";
 
-let fs         = require('fs');
-let AnyDb      = require('any-db');
-let AnyDbQ     = require('../any-db-q');
-let require_nc = require('require-nocache')(module);
-let Q          = require('q');
+let fs                  = require('fs');
+let AnyDb               = require('any-db');
+let DbConnectionPromise = require('../../db-connection-promise');
+let require_nc          = require('require-nocache')(module);
+let Q                   = require('q');
 
 /////////////////////////////////////////////////////////////////////
 /// \brief Helper function which imports a file containing a test suite
@@ -34,7 +34,7 @@ function createConnection(options, pool_options){
 	} else {
 		connection = AnyDb.createPool(options, pool_options);
 	}
-	return new AnyDbQ(connection);
+	return new DbConnectionPromise(connection);
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -59,7 +59,7 @@ function testSqliteInMemory(){
 }
 
 function testSqliteFile(){
-	let db_filename = process.env.ANY_DB_Q_TEST_SQLITE_FILE_FILENAME;
+	let db_filename = process.env.DBCP_TEST_SQLITE_FILE_FILENAME;
 	if(db_filename === undefined){ db_filename = 'test_db.sqlite3'; }
 
 	function deleteDbFile(){
@@ -94,8 +94,8 @@ function testSqliteFile(){
 };
 
 function testMysql(){
-	let db_password = process.env.ANY_DB_Q_TEST_MYSQL_PASSWORD;
-	let db_name     = process.env.ANY_DB_Q_TEST_MYSQL_DATABASE;
+	let db_password = process.env.DBCP_TEST_MYSQL_PASSWORD;
+	let db_name     = process.env.DBCP_TEST_MYSQL_DATABASE;
 
 	if(db_password === undefined){ db_password = '';          }
 	if(db_name     === undefined){ db_name = 'any_db_q_test'; }
@@ -109,7 +109,7 @@ function testMysql(){
 		                                          user     : 'root',
 		                                          password : db_password,
 		                                        });
-		new AnyDbQ(connection)
+		new DbConnectionPromise(connection)
 			.query('DROP DATABASE IF EXISTS ' + db_name + ';')
 			.query('CREATE DATABASE ' + db_name)
 			.query('USE ' + db_name)
@@ -139,18 +139,18 @@ function testMysql(){
 }
 
 /////////////////////////////////////////////////////////
-// Describe block for the entire any-db-q test suite
-describe('AnyDbQ', () => {
+// Describe block for the entire DbConnectionPromise test suite
+describe('DbConnectionPromise', () => {
 	importTest('get-queryable-type');
 	importTest('connect');
 
 	describe('SQLITE3 IN MEMORY', testSqliteInMemory);
 
-	if(process.env.ANY_DB_Q_TEST_SQLITE_FILE == true){
+	if(process.env.DBCP_TEST_SQLITE_FILE == true){
 		describe('SQLITE3 FILE', testSqliteFile);
 	}
 
-	if(process.env.ANY_DB_Q_TEST_MYSQL == true){
+	if(process.env.DBCP_TEST_MYSQL == true){
 		describe('MYSQL', testMysql);
 	}
 });
