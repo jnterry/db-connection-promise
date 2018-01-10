@@ -4,8 +4,9 @@
 /// \file db-connection-promise.js
 /// \author Jamie Terry
 /// \date 2017/07/28
-/// \brief Main file for any-db-q, wraps the any-db library to provide an
-/// interface using promises, via the Q library
+/// \brief Main file for db-connection-promise, wraps the any-db library to
+/// create a class which behaves as a promise, but with additional methods
+/// to access a database
 ////////////////////////////////////////////////////////////////////////////
 
 "use strict";
@@ -44,11 +45,11 @@ function _doCloseConnection(dbh){
 	return defer.promise;
 }
 
-function ConnectionPromise(queryable, promise){
+function DbConnectionPromise(queryable, promise){
 	this._promise   = promise;
 
-	if(queryable.constructor === ConnectionPromise){
-		// Ensure optional methods attached to old ConnectionPromise
+	if(queryable.constructor === DbConnectionPromise){
+		// Ensure optional methods attached to old DbConnectionPromise
 		// carry forward to the new one
 		this.close      = queryable.close;
 		this.rollback   = queryable.rollback;
@@ -60,9 +61,9 @@ function ConnectionPromise(queryable, promise){
 	}
 };
 
-ConnectionPromise.prototype.query = function(){
+DbConnectionPromise.prototype.query = function(){
 	let args = arguments; // capture arguments to function
-	return new ConnectionPromise(this, this._promise.then(() => {
+	return new DbConnectionPromise(this, this._promise.then(() => {
 		return Q.nfapply(this._queryable.it.query.bind(this._queryable.it), args);
 	}));
 };
@@ -70,19 +71,19 @@ ConnectionPromise.prototype.query = function(){
 
 // :TODO: can we generically generate these methods for all methods
 // attached to a Q promise?
-ConnectionPromise.prototype.fail = function(){
-	return new ConnectionPromise(this, this._promise.fail(...arguments));
+DbConnectionPromise.prototype.fail = function(){
+	return new DbConnectionPromise(this, this._promise.fail(...arguments));
 };
-ConnectionPromise.prototype.catch = ConnectionPromise.prototype.catch;
+DbConnectionPromise.prototype.catch = DbConnectionPromise.prototype.catch;
 
-ConnectionPromise.prototype.then = function(){
-	return new ConnectionPromise(this, this._promise.then(...arguments));
+DbConnectionPromise.prototype.then = function(){
+	return new DbConnectionPromise(this, this._promise.then(...arguments));
 };
 
 /////////////////////////////////////////////////////////////////////
 /// \brief Closes the connection (if still open), then behaves as Q.done()
 /////////////////////////////////////////////////////////////////////
-ConnectionPromise.prototype.done = function(){
+DbConnectionPromise.prototype.done = function(){
 	return this._promise.then(() => {
 		if(typeof this.close === 'function' &&
 		   this._queryable.it   !=  null){
@@ -94,8 +95,8 @@ ConnectionPromise.prototype.done = function(){
 	}).done(...arguments)
 };
 
-ConnectionPromise.prototype.transaction = function(operations){
-	return new ConnectionPromise(this,
+DbConnectionPromise.prototype.transaction = function(operations){
+	return new DbConnectionPromise(this,
 		this._promise.then(() => {
 			let defer = Q.defer();
 
@@ -105,7 +106,7 @@ ConnectionPromise.prototype.transaction = function(operations){
 					return;
 				}
 
-				let dbh_tx = makeConnectionPromise(tx);
+				let dbh_tx = makeDbConnectionPromise(tx);
 
 				let manually_closed = false;
 				tx.on('close', () => { manually_closed = true; });
@@ -128,13 +129,13 @@ ConnectionPromise.prototype.transaction = function(operations){
 /// with this connection.
 /// This method is useful if you want to return a promise from a then()
 /// callback
-/// :TODO: Ideally we would just be able to return a ConnectionPromise
+/// :TODO: Ideally we would just be able to return a DbConnectionPromise
 /// Can we somehow extend the Q notion of a promise rather than creating
 /// our own type? That would also solve the problem of not having access to
-/// some q methods on our ConnectionPromise (eg, all, spread etc)
+/// some q methods on our DbConnectionPromise (eg, all, spread etc)
 /// -> these could be added manually
 /////////////////////////////////////////////////////////////////////
-ConnectionPromise.prototype.promise = function(){
+DbConnectionPromise.prototype.promise = function(){
 	return this._promise;
 };
 
@@ -176,51 +177,51 @@ function getQueryableType(queryable) {
 
 /////////////////////////////////////////////////////////////////////
 /// \brief Method version of getQueryableType that operates
-/// on the queryable of this ConnectionPromise
+/// on the queryable of this DbConnectionPromise
 /// This is a chain operator that should be inserted in a list
 /// of promise like operations, return value can be accessed by following with
 /// a then. Eg:
 /// dbh.getQueryableType().then((type) => { /* ... */ });
 /////////////////////////////////////////////////////////////////////
-ConnectionPromise.prototype.getQueryableType = function() {
+DbConnectionPromise.prototype.getQueryableType = function() {
 	this._promise = this._promise.then(() => {
 		return getQueryableType(this._queryable.it);
 	});
 	return this;
 };
 
-function makeConnectionPromise(queryable){
+function makeDbConnectionPromise(queryable){
 	let type = getQueryableType(queryable);
 	if(type.type == null || type.adapter == null){
-		throw new Error("Unknown queryable type, cannot create ConnectionPromise");
+		throw new Error("Unknown queryable type, cannot create DbConnectionPromise");
 	}
 
 	let deferred = Q.defer();
 
 
-	// The ConnectionPromise's ._queryable is actually an object of type:
+	// The DbConnectionPromise's ._queryable is actually an object of type:
 	// { it: <queryable> }
 	//
 	// Consider code like the following:
-	// makeConnectionPromise(conn)
+	// makeDbConnectionPromise(conn)
 	//   .query(() => { ... })
 	//   .then (() => { ... })
-	// query and then return a new ConnectionPromise (just as .then() should
+	// query and then return a new DbConnectionPromise (just as .then() should
 	// return a new Promise according to the Promise/A spec, rather than mutating
 	// the original)
 	//
 	// Note however that the query and then functions are executed by the
 	// code building the promise, and thus may occur before the initial
-	// promise "makeConnectionPromise" resolves. This only affects making a
-	// ConnectionPromise from a pool, since that is an async task.
-	// When we create a new ConnectionPromise we copy the _queryable from
+	// promise "makeDbConnectionPromise" resolves. This only affects making a
+	// DbConnectionPromise from a pool, since that is an async task.
+	// When we create a new DbConnectionPromise we copy the _queryable from
 	// the parent. If this is done before we have filled in _queryable with
-	// the correct value we would copy the value of null into the ConnectionPromise
+	// the correct value we would copy the value of null into the DbConnectionPromise
 	// returned from query and then. Hence when we execute the code in the response
 	// handlers we get errors as they try to operate on a null queryable.
 	// Instead we store a reference to an object which contains the queryable instance.
 	// Hence once we actually get access to the queryable we set ._queryable.it to
-	// the correct value and all ConnectionPromises made from the original one here
+	// the correct value and all DbConnectionPromises made from the original one here
 	// will be automatically updated.
 	// This would be like having a double pointer in C, so that we can patch up
 	// the inner pointer to a new value from a single point of code, eg:
@@ -232,17 +233,17 @@ function makeConnectionPromise(queryable){
 	// actual_queryable when double dereferenced.
 	//
 	// Alternative solutions would be to have this function either return a
-	// promise which resolves to a ConnectionPromise, or take a callback, but
-	// then all code using the ConnectionPromise has to be wrapped up 1 level
+	// promise which resolves to a DbConnectionPromise, or take a callback, but
+	// then all code using the DbConnectionPromise has to be wrapped up 1 level
 	// deeper in callbacks, which is undesirable.
-	// Note also returning a Promise which resolves to a ConnectionPromise
+	// Note also returning a Promise which resolves to a DbConnectionPromise
 	// is not actually possible, since if we try to .resolve(x) where x is a thenable
 	// the promise spec states we should resolve with the final result of x.
 	// Hence this method would have to return a promise which resolves to an object
-	// which contains the ConnectionPromise which is not very intuitive for users
+	// which contains the DbConnectionPromise which is not very intuitive for users
 	// of the library.
 	//
-	// Note that ensuring .then and .query return new ConnectionPromise instances
+	// Note that ensuring .then and .query return new DbConnectionPromise instances
 	// rather than just mutating the internal state is important as it enables code
 	// such as the following:
 	// dbh.query("...")
@@ -261,8 +262,8 @@ function makeConnectionPromise(queryable){
 	// to support many operations. This was previously solved by the hacky
 	// queryfn which generated the string to use as a query - but this
 	// didn't allow different control flows, just different queries.
-	// See: https://github.com/jnterry/any-db-q/blob/970b45b79009044962cb792365021171aa43f865/any-db-q.js#L156
-	let result = new ConnectionPromise({it: null}, deferred.promise);
+	// See: https://github.com/jnterry/db-connection-promise/blob/970b45b79009044962cb792365021171aa43f865/any-db-q.js#L156
+	let result = new DbConnectionPromise({it: null}, deferred.promise);
 
 	switch(type.type) {
 	case 'pool': {
@@ -294,7 +295,7 @@ function makeConnectionPromise(queryable){
 
 		let wrapper = (func_name) => {
 			return function() {
-				return new ConnectionPromise(this,
+				return new DbConnectionPromise(this,
 					this._promise.then(() => {
 						let defer = Q.defer();
 						queryable[func_name]((err) => {
@@ -327,7 +328,7 @@ function makeConnectionPromise(queryable){
 		break;
 	}
 	default:
-		let error = new Error("Unknown queryable type - cannot create ConnectionPromise");
+		let error = new Error("Unknown queryable type - cannot create DbConnectionPromise");
 		deferred.reject(error);
 		throw error;
 	}
@@ -335,6 +336,6 @@ function makeConnectionPromise(queryable){
 	return result;
 }
 
-makeConnectionPromise.getQueryableType = getQueryableType;
+makeDbConnectionPromise.getQueryableType = getQueryableType;
 
-module.exports = makeConnectionPromise;
+module.exports = makeDbConnectionPromise;

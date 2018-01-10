@@ -17,6 +17,7 @@ Todo before 1.0.0 release
 - Test using API in real project rather than just in tests ([nano-orm](https://github.com/jnterry/nano-orm))
 - Better documentation
 - Check ConnectionPromise fully meets the Promises/A+ specification
+- Can we wrap other Promise types (eg, javascript native promises)? Should be able to wrap anything that meets Promises/A+ spec
 - Work out the peerDependency vs dependency stuff (see any-db docs)
 - Grep for :TODO: in code
 - Cleanup of code
