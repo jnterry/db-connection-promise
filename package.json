@@ -1,10 +1,10 @@
 {
-	"name": "any-db-q",
-	"version": "0.3.0",
-	"description": "Wrapper for any-db npm module that converts it to use a Q promise interface",
-	"homepage": "https://github.com/jnterry/any-db-q#readme",
+	"name": "db-connection-promise",
+	"version": "0.4.0",
+	"description": "Extension of Javascript Promises to provide chainable then like syntax for database queries",
+	"homepage": "https://github.com/jnterry/db-connection-promise#readme",
 	"author": "Jamie Terry (https://github.com/jnterry)",
-	"main": "any-db-q.js",
+	"main": "db-connection-promise.js",
 	"license": "MIT",
 	"scripts": {
 		"test": "./node_modules/.bin/mocha test/all.js --reporter spec",
@@ -12,10 +12,10 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/jnterry/any-db-q.git"
+		"url": "git+https://github.com/jnterry/db-connection-promise.git"
 	},
 	"bugs": {
-		"url": "https://github.com/jnterry/any-db-q/issues"
+		"url": "https://github.com/jnterry/db-connection-promise/issues"
 	},
 	"keywords": [
 		"promise",
