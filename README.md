@@ -1,6 +1,6 @@
 # Db Connection Promise
 
-This library provides a class "DbConnectionPromise" which can be used to wrap an ([any-db](https://www.npmjs.com/package/any-db)) database connection. This object adheres to the Promises/A+ specification, but provides an additional chainable .query() method which behaves in a similar manner to .then().
+This library provides a class "DbConnectionPromise" which can be used to wrap an [any-db](https://www.npmjs.com/package/any-db) database connection. This object adheres to the Promises/A+ specification, but provides an additional chainable .query() method which behaves in a similar manner to .then().
 
 This allows for a clean API for querying databases of any sort.
 
