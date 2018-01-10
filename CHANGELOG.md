@@ -1,3 +1,9 @@
+* Wed Jan 10 2018 Jamie Terry <jamie-terry@outlook.com> 0.4.0
+  - Full rewrite and change of API
+  - Create ConnectionPromise wrapper
+  - Rename package to "db-connection-promise"
+* Wed Jan 10 2018 Jamie Terry <jamie-terry@outlook.com> 0.3.1
+  - Deprecate any-db-q, package will be renamed to "db-connection-promise"
 * Fri Aug 18 2017 Jamie Terry <jamie-terry@outlook.com> 0.3.0
   - Implement close method for MySQL standalone connections
 * Mon Jul 31 2017 Jamie Terry <jamie-terry@outlook.com> 0.2.0
