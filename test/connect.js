@@ -46,6 +46,31 @@ it('Sqlite3 Pool Connection',
    }
 );
 
+it('undefined', () => {
+	expect(DbConnectionPromise.bind(undefined)).to.throw();
+});
+
+it('null', () => {
+	expect(DbConnectionPromise.bind(null)).to.throw();
+});
+
+it('1', () => {
+	expect(DbConnectionPromise.bind(1)).to.throw();
+});
+
+it('empty object', () => {
+	expect(DbConnectionPromise.bind({})).to.throw();
+});
+
+it('object w/ query', () => {
+	expect(DbConnectionPromise.bind({ query: 1 })).to.throw();
+});
+
+it('object w/ query function', () => {
+	expect(DbConnectionPromise.bind({ query: () => { return 1; } })).to.throw();
+});
+
+
 /*it('Bad credentials return invalid connection', (done) => {
 	let connection = AnyDb.createConnection({
 		adapter   : 'mysql',
