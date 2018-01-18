@@ -28,10 +28,9 @@ function testSuccessfulConnect(options, pool_options){
 	} else {
 		connection = AnyDb.createPool(options, pool_options);
 	}
-	return DbConnectionPromise(connection, (dbh) => {
-		isValidConnection(dbh);
-		return dbh.close();
-	});
+	let dbh = DbConnectionPromise(connection);
+	isValidConnection(dbh);
+	return dbh.close();
 }
 
 it('Sqlite3 Single connection', () => {
