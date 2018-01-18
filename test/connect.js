@@ -21,7 +21,7 @@ function isValidConnection(connection){
 	return connection;
 }
 
-function testSuccessfulConnect(options, pool_options){
+function testSuccessfulConnect(options, pool_options, no_close){
 	let connection = null;
 	if(pool_options == null){
 		connection = AnyDb.createConnection(options);
@@ -30,11 +30,20 @@ function testSuccessfulConnect(options, pool_options){
 	}
 	let dbh = DbConnectionPromise(connection);
 	isValidConnection(dbh);
-	return dbh.close();
+
+	if(no_close){
+		return dbh.done();
+	} else {
+		return dbh.close();
+	}
 }
 
 it('Sqlite3 Single connection', () => {
 	return testSuccessfulConnect({ 'adapter'  : 'sqlite3' });
+});
+
+it('Sqlite3 Single connection No Close', () => {
+	return testSuccessfulConnect({ 'adapter'  : 'sqlite3' }, null, true);
 });
 
 it('Sqlite3 Pool Connection',
@@ -42,6 +51,15 @@ it('Sqlite3 Pool Connection',
 	   return testSuccessfulConnect({ adapter         : 'sqlite3',
 	                                  database        : 'test_db.sqlite3',
 	                                }, {min : 2, max: 32}
+	                               );
+   }
+);
+
+it('Sqlite3 Pool Connection No Close',
+   () => {
+	   return testSuccessfulConnect({ adapter         : 'sqlite3',
+	                                  database        : 'test_db.sqlite3',
+	                                }, {min : 2, max: 32}, true
 	                               );
    }
 );
