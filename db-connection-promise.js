@@ -19,7 +19,7 @@ function _doCloseConnection(dbh){
 	let defer = Q.defer();
 	if(typeof dbh.destroy === 'function') {
 		// Then its a MySQL standalone connection, call destroy to close
-		return dbh.destroy();
+		dbh.destroy();
 		defer.resolve(true);
 	} else if (dbh._db !== undefined && typeof dbh._db.close === 'function') {
 		// Then is a sqlite3 connection
@@ -92,7 +92,7 @@ DbConnectionPromise.prototype.done = function(){
 		// :TODO: should we auto commit/rollback a transaction?
 		//        -> if so need to keep track of if committed/rolledback, since can't
 		//           do it twice
-	}).done(...arguments)
+	}).done(...arguments);
 };
 
 DbConnectionPromise.prototype.transaction = function(operations){
@@ -125,21 +125,6 @@ DbConnectionPromise.prototype.transaction = function(operations){
 };
 
 /////////////////////////////////////////////////////////////////////
-/// \brief Gets the promise representing the chain of actions to perform
-/// with this connection.
-/// This method is useful if you want to return a promise from a then()
-/// callback
-/// :TODO: Ideally we would just be able to return a DbConnectionPromise
-/// Can we somehow extend the Q notion of a promise rather than creating
-/// our own type? That would also solve the problem of not having access to
-/// some q methods on our DbConnectionPromise (eg, all, spread etc)
-/// -> these could be added manually
-/////////////////////////////////////////////////////////////////////
-DbConnectionPromise.prototype.promise = function(){
-	return this._promise;
-};
-
-/////////////////////////////////////////////////////////////////////
 /// \brief Determines the type of a queryable
 /// \return object of following form:
 /// { type    : "connection" | "pool" | "transaction" | null,
@@ -168,7 +153,7 @@ function getQueryableType(queryable) {
 	           // can we think of anything more robust?
 	           (queryable._nestingLevel != null || queryable._autoRollback != null)){
 		result.type = "transaction";
-	} else if (typeof queryable.query === 'function'){
+	} else {
 		result.type = "connection";
 	}
 
@@ -192,12 +177,8 @@ DbConnectionPromise.prototype.getQueryableType = function() {
 
 function makeDbConnectionPromise(queryable){
 	let type = getQueryableType(queryable);
-	if(type.type == null || type.adapter == null){
-		throw new Error("Unknown queryable type, cannot create DbConnectionPromise");
-	}
 
 	let deferred = Q.defer();
-
 
 	// The DbConnectionPromise's ._queryable is actually an object of type:
 	// { it: <queryable> }
@@ -285,7 +266,6 @@ function makeDbConnectionPromise(queryable){
 				queryable.release(this._queryable.it);
 				this._queryable.it = null;
 			});
-			return this;
 		};
 
 		break;
