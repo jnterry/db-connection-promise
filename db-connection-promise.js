@@ -87,7 +87,7 @@ DbConnectionPromise.prototype.done = function(){
 	return this._promise.then(() => {
 		if(typeof this.close  === 'function' &&
 		   this._queryable.it !=  null){
-			return this.close().promise();
+			return this.close();
 		}
 		// :TODO: should we auto commit/rollback a transaction?
 		//        -> if so need to keep track of if committed/rolledback, since can't
