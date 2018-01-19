@@ -11,7 +11,7 @@
 
 require('./common.js');
 
-function checkErrorEscapes(done, dbh){
+function checkErrorEscapes(done, expected_error, dbh){
 	return dbh
 		.then(
 			(val) => {
@@ -19,7 +19,16 @@ function checkErrorEscapes(done, dbh){
 				done(new Error("Error did not escape transaction"));
 			},
 			(err) => {
-				expect(err).deep.equal("Bad stuff");
+				if(typeof err === "string"){
+					expect(err).deep.equal(expected_error);
+				} else {
+					expect(err).to.exist;
+					expect(err).is.instanceOf(Error);
+					expect(err.message).to.exist;
+					expect(err.message).to.contain(expected_error);
+				}
+				if(typeof expected_error == "String"){
+				} else
 				done();
 			}
 		)
@@ -27,7 +36,7 @@ function checkErrorEscapes(done, dbh){
 }
 
 it('Exceptions propagate from transaction callback', (done) => {
-	checkErrorEscapes(done,
+	checkErrorEscapes(done, "Bad stuff",
 		getDbConnection()
 			.transaction((dbh) => {
 				isValidTransaction(dbh);
@@ -37,7 +46,7 @@ it('Exceptions propagate from transaction callback', (done) => {
 });
 
 it('Exceptions propagate from implicit rollback', (done) => {
-	checkErrorEscapes(done,
+	checkErrorEscapes(done, "Bad stuff",
 		getDbConnection()
 			.transaction((dbh) => {
 				isValidTransaction(dbh);
@@ -79,7 +88,7 @@ it('No exception raised by explicit rollback', (done) => {
 });
 
 it('Exceptions propagate from bad query', (done) => {
-	checkErrorEscapes(done,
+	checkErrorEscapes(done, "non_existent_table",
 		getDbConnection()
 			.transaction((dbh) => {
 				isValidTransaction(dbh);
@@ -92,8 +101,8 @@ it('Exceptions propagate from bad query', (done) => {
 	);
 });
 
-it('Exceptions propagate from bad query even if rolled back', (done) => {
-	checkErrorEscapes(done,
+it('Exceptions propagate from bad query even if explicitly rolled back', (done) => {
+	checkErrorEscapes(done, "non_existent_table",
 		getDbConnection()
 			.transaction((dbh) => {
 				isValidTransaction(dbh);

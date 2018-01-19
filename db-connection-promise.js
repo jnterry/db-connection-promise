@@ -114,15 +114,19 @@ DbConnectionPromise.prototype.transaction = function(operations){
 					operations(dbh_tx)
 						.then(
 							(val) => {
-								if(!manually_closed){ return dbh_tx.commit  (); }
+								let retval = dbh_tx;
+								if(!manually_closed){ retval = retval.commit(); }
+								retval = retval.then(() => { defer.resolve(val); });
+								return retval;
 							},
-							() => {
-								if(!manually_closed){ return dbh_tx.rollback(); }
+							(err) => {
+								let retval = dbh_tx;
+								if(!manually_closed){ retval = retval.rollback(); }
+								retval.then(() => { defer.reject (err); });
+								return retval;
 							}
 						)
-						.done((   ) => { defer.resolve(   ); },
-						      (err) => { defer.reject (err); }
-						     );
+						.done();
 				} catch (err) {
 					defer.reject(err);
 			  }

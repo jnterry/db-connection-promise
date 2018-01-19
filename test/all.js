@@ -44,9 +44,9 @@ function createConnection(options, pool_options){
 function runAllStandardDbTests(){
 	importTest('query-simple'        );
 	importTest('query-bound-params'  );
+	importTest('transaction-errors'  );
 	importTest('transaction-implicit');
 	importTest('transaction-explicit');
-	importTest('transaction-errors'  );
 }
 
 function testSqliteInMemory(){
