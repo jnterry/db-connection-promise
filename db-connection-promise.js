@@ -74,11 +74,16 @@ DbConnectionPromise.prototype.query = function(){
 DbConnectionPromise.prototype.fail = function(){
 	return new DbConnectionPromise(this, this._promise.fail(...arguments));
 };
-DbConnectionPromise.prototype.catch = DbConnectionPromise.prototype.catch;
+DbConnectionPromise.prototype.catch = DbConnectionPromise.prototype.fail;
 
 DbConnectionPromise.prototype.then = function(){
 	return new DbConnectionPromise(this, this._promise.then(...arguments));
 };
+
+DbConnectionPromise.prototype.finally = function(){
+	return new DbConnectionPromise(this, this._promise.finally(...arguments));
+};
+DbConnectionPromise.prototype.fin = DbConnectionPromise.prototype.finally;
 
 /////////////////////////////////////////////////////////////////////
 /// \brief Closes the connection (if still open), then behaves as Q.done()
@@ -94,6 +99,8 @@ DbConnectionPromise.prototype.done = function(){
 		//           do it twice
 	}).done(...arguments);
 };
+
+
 
 DbConnectionPromise.prototype.transaction = function(operations){
 	return new DbConnectionPromise(this,
