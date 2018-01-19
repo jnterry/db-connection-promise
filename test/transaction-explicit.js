@@ -96,6 +96,47 @@ it('Insert in transaction and rollback', () => {
 		});
 });
 
+it('Error after rollback doesn\'t disrupt rollback', () => {
+	return initUserTable()
+		.transaction((dbh) => {
+			isValidTransaction(dbh);
+			return dbh
+				.query(`INSERT INTO user (id, username, password) VALUES
+			                           (1, 'bob', 'pass');`
+				      )
+				.then((results) => {
+					expect(results             ).does.exist;
+					expect(results.rowCount    ).to.deep.equal(1);
+					expect(results.rows        ).to.deep.equal([]);
+				})
+				.query(`SELECT * FROM user;`)
+				.then((results) => {
+					// Check data is visible within the transaction
+					expect(results             ).does.exist;
+					expect(results.lastInsertId).is.not.ok;
+					expect(results.rowCount    ).to.deep.equal(1);
+					expect(results.rows        ).is.a('array').with.length(1);
+					expect(results.rows[0]     ).to.deep.equal({
+						id       : 1,
+						username : 'bob',
+						password : 'pass',
+					});
+				})
+				.rollback()
+				.then(() => { throw "Nasty error"; });
+		})
+		.fail(() => {})
+		.query(`SELECT * FROM user;`)
+		.then((results) => {
+			// Error occurred within the transaction, so it should have been
+			// rolled back, and results will not be visible
+			expect(results             ).does.exist;
+			expect(results.lastInsertId).is.not.ok;
+			expect(results.rowCount    ).to.deep.equal(0);
+			expect(results.rows        ).to.deep.equal([]);
+		});
+});
+
 it('Nested Transactions - Commit All', () => {
 	return initUserTableWithUser({ id: 9, username: 'admin', password: 'root'})
 		.transaction((dbh) => {
