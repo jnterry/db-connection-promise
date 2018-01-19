@@ -1,3 +1,8 @@
+* Fri Jan 19 2018 Jamie Terry <jamie-terry@outlook.com> 0.4.1
+  - Fix implicit close performed by done()
+  - Increase test coverage
+  - Ensure values returned from transaction propagate to next then clause after transaction
+  - Ensure errors thrown in transaction propagate to next fail clause after transaction
 * Wed Jan 10 2018 Jamie Terry <jamie-terry@outlook.com> 0.4.0
   - Full rewrite and change of API
   - Create ConnectionPromise wrapper
