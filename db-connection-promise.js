@@ -100,6 +100,8 @@ DbConnectionPromise.prototype.transaction = function(operations){
 		this._promise.then(() => {
 			let defer = Q.defer();
 
+			let operations_result = undefined;
+
 			begin_tx(this._queryable.it, { autoRollback: false }, (err, tx) => {
 				if(err){
 					defer.reject(err);
@@ -111,15 +113,21 @@ DbConnectionPromise.prototype.transaction = function(operations){
 				let manually_closed = false;
 				tx.on('close', () => { manually_closed = true; });
 				operations(dbh_tx)
-					.then(() => { if(!manually_closed){ return dbh_tx.commit  (); } },
-					      () => { if(!manually_closed){ return dbh_tx.rollback(); } }
-					     )
-					.done((   ) => { defer.resolve();   },
-					      (err) => { defer.reject(err); }
+					.then(
+						(val) => {
+							operations_result = val;
+							if(!manually_closed){ return dbh_tx.commit  (); }
+						},
+						() => {
+							if(!manually_closed){ return dbh_tx.rollback(); }
+						}
+					)
+					.done((   ) => { defer.resolve(   ); },
+					      (err) => { defer.reject (err); }
 					     );
 			});
 
-			return defer.promise;
+			return defer.promise.then(() => { return operations_result; });
 		})
 	);
 };
@@ -273,26 +281,27 @@ function makeDbConnectionPromise(queryable){
 	case 'transaction': {
 		result._queryable.it = queryable;
 
-		let wrapper = (func_name) => {
-			return function() {
-				return new DbConnectionPromise(this,
-					this._promise.then(() => {
-						let defer = Q.defer();
-						queryable[func_name]((err) => {
-							if(err){
-								defer.reject(err);
-							} else {
-								defer.resolve();
-							}
-						});
-						return defer.promise;
-					})
-				);
-			};
+		result.commit = function(){
+			return new DbConnectionPromise(this, this._promise.then((val) => {
+				let defer = Q.defer();
+				queryable.commit((err) => {
+					if(err){ defer.reject (err); }
+					else   { defer.resolve(val); }
+				});
+				return defer.promise;
+			}));
 		};
 
-		result.commit   = wrapper('commit'  );
-		result.rollback = wrapper('rollback');
+		result.rollback = function(){
+			return new DbConnectionPromise(this, this._promise.then((val) => {
+				let defer = Q.defer();
+				queryable.rollback((err) => {
+					if(err){ defer.reject (err); }
+					else   { defer.resolve(   ); }
+				});
+				return defer.promise;
+			}));
+		};
 
 		deferred.resolve();
 		break;

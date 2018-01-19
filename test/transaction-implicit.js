@@ -191,3 +191,49 @@ it('Nested Transactions - Both Rollback', () => {
 			expect(results.rows[0]     ).to.deep.equal({ id: 9, username: 'admin', password: 'root'});
 		});
 });
+
+it('Can pass data out of committed transaction', () => {
+	return initUserTableWithUser({ id: 100, username : 'johnsmith', password: 'abc'})
+		.transaction((dbh) => {
+			isValidTransaction(dbh);
+			return dbh
+				.query(`UPDATE user SET username = 'j.smith' WHERE id = 100`)
+				.then((results) => {
+					expect(results).does.exist;
+				})
+				.query(`SELECT * from user`)
+				.then((results) => {
+					expect(results             ).does.exist;
+					expect(results.rowCount    ).to.deep.equal(1);
+					expect(results.rows[0]     ).to.deep.equal({ id: 100, username: 'j.smith', password: 'abc'});
+					return results;
+				});
+		})
+		.then((results) => {
+			expect(results             ).does.exist;
+			expect(results.rowCount    ).to.deep.equal(1);
+			expect(results.rows[0]     ).to.deep.equal({ id: 100, username: 'j.smith', password: 'abc'});
+		});
+});
+
+it('Can\'t pass data out of rolledback transaction', () => {
+	return initUserTableWithUser({ id: 100, username : 'johnsmith', password: 'abc'})
+		.transaction((dbh) => {
+			isValidTransaction(dbh);
+			return dbh
+				.query(`UPDATE user SET username = 'j.smith' WHERE id = 100`)
+				.then((results) => {
+					expect(results).does.exist;
+				})
+				.query(`SELECT * from user`)
+				.then((results) => {
+					expect(results             ).does.exist;
+					expect(results.rowCount    ).to.deep.equal(1);
+					expect(results.rows[0]     ).to.deep.equal({ id: 100, username: 'j.smith', password: 'abc'});
+					throw "Error";
+				});
+		})
+		.then((results) => {
+			expect(results).does.not.exist;
+		});
+});
