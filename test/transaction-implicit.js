@@ -12,12 +12,6 @@
 
 require('./common.js');
 
-function isValidTransaction(tx){
-	expect(tx.query   ).to.be.a('function');
-	expect(tx.commit  ).to.be.a('function');
-	expect(tx.rollback).to.be.a('function');
-}
-
 it('Insert in transaction and commit', () => {
 	return initUserTable()
 		.transaction((dbh) => {
@@ -91,6 +85,7 @@ it('Insert in transaction and rollback', () => {
 					throw "A bad thing happened";
 				});
 		})
+		.fail((err) => {})
 		.query(`SELECT * FROM user;`)
 		.then((results) => {
 			// Error occurred within the transaction, so it should have been
@@ -113,6 +108,7 @@ it('Nested Transactions - Commit All', () => {
 					return dbh.query((`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`));
 				});
 		}) // By now both transactions should have been committed
+		.fail((err) => {})
 		.query(`SELECT * FROM user ORDER BY id ASC`)
 		.then((results) => {
 			expect(results             ).does.exist;
@@ -134,8 +130,9 @@ it('Nested Transactions - Inner Rollback', () => {
 					return dbh
 						.query((`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`))
 						.then(() => { throw "A nasty error :o"; });
-				});
+				}).fail((err) => {})
 		})
+		.fail((err) => {})
 		.query(`SELECT * FROM user ORDER BY id ASC`)
 		.then((results) => {
 			// By now inner transaction should have been rolled back, but outer committed
@@ -157,7 +154,9 @@ it('Nested Transactions - Outer Rollback', () => {
 					return dbh.query((`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`));
 				})
 				.then(() => { throw "A nasty error :o"; });
-		}).query(`SELECT * FROM user ORDER BY id ASC`)
+		})
+		.fail((err) => {})
+		.query(`SELECT * FROM user ORDER BY id ASC`)
 		.then((results) => {
 			// By now the outer transaction should have been rolled back, which will
 			// implicitly roll back the inner transaction
@@ -182,6 +181,7 @@ it('Nested Transactions - Both Rollback', () => {
 				})
 				.then(() => { throw "An even nastier error :o"; });
 		})
+		.fail((err) => {})
 		.query(`SELECT * FROM user ORDER BY id ASC`)
 		.then((results) => {
 			// By now both transactions should have been rolled back
@@ -189,5 +189,52 @@ it('Nested Transactions - Both Rollback', () => {
 			expect(results.lastInsertId).is.not.ok;
 			expect(results.rowCount    ).to.deep.equal(1);
 			expect(results.rows[0]     ).to.deep.equal({ id: 9, username: 'admin', password: 'root'});
+		});
+});
+
+it('Can pass data out of committed transaction', () => {
+	return initUserTableWithUser({ id: 100, username : 'johnsmith', password: 'abc'})
+		.transaction((dbh) => {
+			isValidTransaction(dbh);
+			return dbh
+				.query(`UPDATE user SET username = 'j.smith' WHERE id = 100`)
+				.then((results) => {
+					expect(results).does.exist;
+				})
+				.query(`SELECT * from user`)
+				.then((results) => {
+					expect(results             ).does.exist;
+					expect(results.rowCount    ).to.deep.equal(1);
+					expect(results.rows[0]     ).to.deep.equal({ id: 100, username: 'j.smith', password: 'abc'});
+					return results;
+				});
+		})
+		.then((results) => {
+			expect(results             ).does.exist;
+			expect(results.rowCount    ).to.deep.equal(1);
+			expect(results.rows[0]     ).to.deep.equal({ id: 100, username: 'j.smith', password: 'abc'});
+		});
+});
+
+it('Can\'t pass data out of rolledback transaction', () => {
+	return initUserTableWithUser({ id: 100, username : 'johnsmith', password: 'abc'})
+		.transaction((dbh) => {
+			isValidTransaction(dbh);
+			return dbh
+				.query(`UPDATE user SET username = 'j.smith' WHERE id = 100`)
+				.then((results) => {
+					expect(results).does.exist;
+				})
+				.query(`SELECT * from user`)
+				.then((results) => {
+					expect(results             ).does.exist;
+					expect(results.rowCount    ).to.deep.equal(1);
+					expect(results.rows[0]     ).to.deep.equal({ id: 100, username: 'j.smith', password: 'abc'});
+					throw "Error";
+				});
+		})
+		.fail(() => {})
+		.then((results) => {
+			expect(results).does.not.exist;
 		});
 });

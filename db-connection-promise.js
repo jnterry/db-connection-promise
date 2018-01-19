@@ -19,7 +19,7 @@ function _doCloseConnection(dbh){
 	let defer = Q.defer();
 	if(typeof dbh.destroy === 'function') {
 		// Then its a MySQL standalone connection, call destroy to close
-		return dbh.destroy();
+		dbh.destroy();
 		defer.resolve(true);
 	} else if (dbh._db !== undefined && typeof dbh._db.close === 'function') {
 		// Then is a sqlite3 connection
@@ -85,20 +85,22 @@ DbConnectionPromise.prototype.then = function(){
 /////////////////////////////////////////////////////////////////////
 DbConnectionPromise.prototype.done = function(){
 	return this._promise.then(() => {
-		if(typeof this.close === 'function' &&
-		   this._queryable.it   !=  null){
-			return this.close().promise();
+		if(typeof this.close  === 'function' &&
+		   this._queryable.it !=  null){
+			return this.close();
 		}
 		// :TODO: should we auto commit/rollback a transaction?
 		//        -> if so need to keep track of if committed/rolledback, since can't
 		//           do it twice
-	}).done(...arguments)
+	}).done(...arguments);
 };
 
 DbConnectionPromise.prototype.transaction = function(operations){
 	return new DbConnectionPromise(this,
 		this._promise.then(() => {
 			let defer = Q.defer();
+
+			let operations_result = undefined;
 
 			begin_tx(this._queryable.it, { autoRollback: false }, (err, tx) => {
 				if(err){
@@ -110,33 +112,32 @@ DbConnectionPromise.prototype.transaction = function(operations){
 
 				let manually_closed = false;
 				tx.on('close', () => { manually_closed = true; });
-				operations(dbh_tx)
-					.then(() => { if(!manually_closed){ return dbh_tx.commit  (); } },
-					      () => { if(!manually_closed){ return dbh_tx.rollback(); } }
-					     )
-					.done((   ) => { defer.resolve();   },
-					      (err) => { defer.reject(err); }
-					     );
+				try {
+					operations(dbh_tx)
+						.then(
+							(val) => {
+								operations_result = val;
+								let retval = dbh_tx;
+								if(!manually_closed){ retval = retval.commit(); }
+								retval = retval.then(() => { defer.resolve(val); });
+								return retval;
+							},
+							(err) => {
+								let retval = dbh_tx;
+								if(!manually_closed){ retval = retval.rollback(); }
+								retval.then(() => { defer.reject (err); });
+								return retval;
+							}
+						)
+						.done();
+				} catch (err) {
+					defer.reject(err);
+			  }
 			});
 
-			return defer.promise;
+			return defer.promise.then(() => { return operations_result; });
 		})
 	);
-};
-
-/////////////////////////////////////////////////////////////////////
-/// \brief Gets the promise representing the chain of actions to perform
-/// with this connection.
-/// This method is useful if you want to return a promise from a then()
-/// callback
-/// :TODO: Ideally we would just be able to return a DbConnectionPromise
-/// Can we somehow extend the Q notion of a promise rather than creating
-/// our own type? That would also solve the problem of not having access to
-/// some q methods on our DbConnectionPromise (eg, all, spread etc)
-/// -> these could be added manually
-/////////////////////////////////////////////////////////////////////
-DbConnectionPromise.prototype.promise = function(){
-	return this._promise;
 };
 
 /////////////////////////////////////////////////////////////////////
@@ -168,7 +169,7 @@ function getQueryableType(queryable) {
 	           // can we think of anything more robust?
 	           (queryable._nestingLevel != null || queryable._autoRollback != null)){
 		result.type = "transaction";
-	} else if (typeof queryable.query === 'function'){
+	} else {
 		result.type = "connection";
 	}
 
@@ -192,12 +193,8 @@ DbConnectionPromise.prototype.getQueryableType = function() {
 
 function makeDbConnectionPromise(queryable){
 	let type = getQueryableType(queryable);
-	if(type.type == null || type.adapter == null){
-		throw new Error("Unknown queryable type, cannot create DbConnectionPromise");
-	}
 
 	let deferred = Q.defer();
-
 
 	// The DbConnectionPromise's ._queryable is actually an object of type:
 	// { it: <queryable> }
@@ -285,7 +282,6 @@ function makeDbConnectionPromise(queryable){
 				queryable.release(this._queryable.it);
 				this._queryable.it = null;
 			});
-			return this;
 		};
 
 		break;
@@ -293,26 +289,27 @@ function makeDbConnectionPromise(queryable){
 	case 'transaction': {
 		result._queryable.it = queryable;
 
-		let wrapper = (func_name) => {
-			return function() {
-				return new DbConnectionPromise(this,
-					this._promise.then(() => {
-						let defer = Q.defer();
-						queryable[func_name]((err) => {
-							if(err){
-								defer.reject(err);
-							} else {
-								defer.resolve();
-							}
-						});
-						return defer.promise;
-					})
-				);
-			};
+		result.commit = function(){
+			return new DbConnectionPromise(this, this._promise.then((val) => {
+				let defer = Q.defer();
+				queryable.commit((err) => {
+					if(err){ defer.reject (err); }
+					else   { defer.resolve(val); }
+				});
+				return defer.promise;
+			}));
 		};
 
-		result.commit   = wrapper('commit'  );
-		result.rollback = wrapper('rollback');
+		result.rollback = function(){
+			return new DbConnectionPromise(this, this._promise.then((val) => {
+				let defer = Q.defer();
+				queryable.rollback((err) => {
+					if(err){ defer.reject (err); }
+					else   { defer.resolve(   ); }
+				});
+				return defer.promise;
+			}));
+		};
 
 		deferred.resolve();
 		break;

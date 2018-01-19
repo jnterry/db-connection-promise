@@ -21,21 +21,29 @@ function isValidConnection(connection){
 	return connection;
 }
 
-function testSuccessfulConnect(options, pool_options){
+function testSuccessfulConnect(options, pool_options, no_close){
 	let connection = null;
 	if(pool_options == null){
 		connection = AnyDb.createConnection(options);
 	} else {
 		connection = AnyDb.createPool(options, pool_options);
 	}
-	return DbConnectionPromise(connection, (dbh) => {
-		isValidConnection(dbh);
+	let dbh = DbConnectionPromise(connection);
+	isValidConnection(dbh);
+
+	if(no_close){
+		return dbh.done();
+	} else {
 		return dbh.close();
-	});
+	}
 }
 
 it('Sqlite3 Single connection', () => {
 	return testSuccessfulConnect({ 'adapter'  : 'sqlite3' });
+});
+
+it('Sqlite3 Single connection No Close', () => {
+	return testSuccessfulConnect({ 'adapter'  : 'sqlite3' }, null, true);
 });
 
 it('Sqlite3 Pool Connection',
@@ -46,6 +54,40 @@ it('Sqlite3 Pool Connection',
 	                               );
    }
 );
+
+it('Sqlite3 Pool Connection No Close',
+   () => {
+	   return testSuccessfulConnect({ adapter         : 'sqlite3',
+	                                  database        : 'test_db.sqlite3',
+	                                }, {min : 2, max: 32}, true
+	                               );
+   }
+);
+
+it('undefined', () => {
+	expect(DbConnectionPromise.bind(undefined)).to.throw();
+});
+
+it('null', () => {
+	expect(DbConnectionPromise.bind(null)).to.throw();
+});
+
+it('1', () => {
+	expect(DbConnectionPromise.bind(1)).to.throw();
+});
+
+it('empty object', () => {
+	expect(DbConnectionPromise.bind({})).to.throw();
+});
+
+it('object w/ query', () => {
+	expect(DbConnectionPromise.bind({ query: 1 })).to.throw();
+});
+
+it('object w/ query function', () => {
+	expect(DbConnectionPromise.bind({ query: () => { return 1; } })).to.throw();
+});
+
 
 /*it('Bad credentials return invalid connection', (done) => {
 	let connection = AnyDb.createConnection({
