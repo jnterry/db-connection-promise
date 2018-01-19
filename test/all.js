@@ -42,10 +42,11 @@ function createConnection(options, pool_options){
 /// SQL syntax and thus should have consistent behaviour for all adaptors
 /////////////////////////////////////////////////////////////////////
 function runAllStandardDbTests(){
-	importTest('query-simple');
-	importTest('query-bound-params');
+	importTest('query-simple'        );
+	importTest('query-bound-params'  );
 	importTest('transaction-implicit');
 	importTest('transaction-explicit');
+	importTest('transaction-errors'  );
 }
 
 function testSqliteInMemory(){

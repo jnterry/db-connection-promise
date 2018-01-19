@@ -15,6 +15,7 @@ require('./common.js');
 it('Insert in transaction and commit', () => {
 	return initUserTable()
 		.transaction((dbh) => {
+			isValidTransaction(dbh);
 			return dbh
 				.query(`INSERT INTO user (id, username, password) VALUES
 			                           (1, 'bob', 'pass');`
@@ -59,6 +60,7 @@ it('Insert in transaction and commit', () => {
 it('Insert in transaction and rollback', () => {
 	return initUserTable()
 		.transaction((dbh) => {
+			isValidTransaction(dbh);
 			return dbh
 				.query(`INSERT INTO user (id, username, password) VALUES
 			                           (1, 'bob', 'pass');`
@@ -97,9 +99,11 @@ it('Insert in transaction and rollback', () => {
 it('Nested Transactions - Commit All', () => {
 	return initUserTableWithUser({ id: 9, username: 'admin', password: 'root'})
 		.transaction((dbh) => {
+			isValidTransaction(dbh);
 			return dbh
 				.query(`UPDATE user SET username = 'me' WHERE id = 9`)
 				.transaction((dbh) => {
+					isValidTransaction(dbh);
 					return dbh
 						.query((`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`))
 						.commit();
@@ -119,9 +123,11 @@ it('Nested Transactions - Commit All', () => {
 it('Nested Transactions - Inner Rollback', () => {
 	return initUserTableWithUser({ id: 9, username: 'admin', password: 'root'})
 		.transaction((dbh) => {
+			isValidTransaction(dbh);
 			return dbh
 				.query(`UPDATE user SET username = 'me' WHERE id = 9`)
 				.transaction((dbh) => {
+					isValidTransaction(dbh);
 					return dbh
 						.query((`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`))
 						.rollback();
@@ -141,9 +147,11 @@ it('Nested Transactions - Inner Rollback', () => {
 it('Nested Transactions - Outer Rollback', () => {
 	return initUserTableWithUser({ id: 9, username: 'admin', password: 'root'})
 		.transaction((dbh) => {
+			isValidTransaction(dbh);
 			return dbh
 				.query(`UPDATE user SET username = 'me' WHERE id = 9`)
 				.transaction((dbh) => {
+					isValidTransaction(dbh);
 					return dbh
 						.query((`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`))
 						.commit();
@@ -163,9 +171,11 @@ it('Nested Transactions - Outer Rollback', () => {
 it('Nested Transactions - Both Rollback', () => {
 	return initUserTableWithUser({ id: 9, username: 'admin', password: 'root'})
 		.transaction((dbh) => {
+			isValidTransaction(dbh);
 			return dbh
 				.query(`UPDATE user SET username = 'me' WHERE id = 9`)
 				.transaction((dbh) => {
+					isValidTransaction(dbh);
 					return dbh
 						.query((`INSERT INTO user (id, username, password) VALUES (5, 'a', 'b')`))
 						.rollback();

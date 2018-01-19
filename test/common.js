@@ -97,3 +97,9 @@ global.initUserTableWithUser = function(user){
 			expect(results.rows[0]     ).is.deep.equal(user);
 		});
 };
+
+global.isValidTransaction = function(tx){
+	expect(tx.query   ).to.be.a('function');
+	expect(tx.commit  ).to.be.a('function');
+	expect(tx.rollback).to.be.a('function');
+}

@@ -12,12 +12,6 @@
 
 require('./common.js');
 
-function isValidTransaction(tx){
-	expect(tx.query   ).to.be.a('function');
-	expect(tx.commit  ).to.be.a('function');
-	expect(tx.rollback).to.be.a('function');
-}
-
 it('Insert in transaction and commit', () => {
 	return initUserTable()
 		.transaction((dbh) => {
