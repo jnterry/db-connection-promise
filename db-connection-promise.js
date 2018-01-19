@@ -128,8 +128,7 @@ DbConnectionPromise.prototype.transaction = function(operations){
 								retval.then(() => { defer.reject (err); });
 								return retval;
 							}
-						)
-						.done();
+						);
 				} catch (err) {
 					defer.reject(err);
 			  }
