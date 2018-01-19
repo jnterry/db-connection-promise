@@ -110,13 +110,22 @@ DbConnectionPromise.prototype.transaction = function(operations){
 
 				let manually_closed = false;
 				tx.on('close', () => { manually_closed = true; });
-				operations(dbh_tx)
-					.then(() => { if(!manually_closed){ return dbh_tx.commit  (); } },
-					      () => { if(!manually_closed){ return dbh_tx.rollback(); } }
-					     )
-					.done((   ) => { defer.resolve();   },
-					      (err) => { defer.reject(err); }
-					     );
+				try {
+					operations(dbh_tx)
+						.then(
+							(val) => {
+								if(!manually_closed){ return dbh_tx.commit  (); }
+							},
+							() => {
+								if(!manually_closed){ return dbh_tx.rollback(); }
+							}
+						)
+						.done((   ) => { defer.resolve(   ); },
+						      (err) => { defer.reject (err); }
+						     );
+				} catch (err) {
+					defer.reject(err);
+			  }
 			});
 
 			return defer.promise;
