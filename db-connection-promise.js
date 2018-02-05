@@ -85,22 +85,9 @@ DbConnectionPromise.prototype.finally = function(){
 };
 DbConnectionPromise.prototype.fin = DbConnectionPromise.prototype.finally;
 
-/////////////////////////////////////////////////////////////////////
-/// \brief Closes the connection (if still open), then behaves as Q.done()
-/////////////////////////////////////////////////////////////////////
 DbConnectionPromise.prototype.done = function(){
-	return this._promise.then(() => {
-		if(typeof this.close  === 'function' &&
-		   this._queryable.it !=  null){
-			return this.close();
-		}
-		// :TODO: should we auto commit/rollback a transaction?
-		//        -> if so need to keep track of if committed/rolledback, since can't
-		//           do it twice
-	}).done(...arguments);
+	return this._promise.done(...arguments);
 };
-
-
 
 DbConnectionPromise.prototype.transaction = function(operations){
 	return new DbConnectionPromise(this,
