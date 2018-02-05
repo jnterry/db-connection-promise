@@ -1,3 +1,7 @@
+* Mon Feb 05 2018 Jamie Terry <jamie-terry@outlook.com> 0.4.3
+  - Don't close connection as part of done()
+* Mon Jan 27 2018 Jamie Terry <jamie-terry@outlook.com> 0.4.2
+  - Add finally method to wrap Q's version
 * Fri Jan 19 2018 Jamie Terry <jamie-terry@outlook.com> 0.4.1
   - Fix implicit close performed by done()
   - Increase test coverage

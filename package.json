@@ -1,6 +1,6 @@
 {
 	"name": "db-connection-promise",
-	"version": "0.4.2",
+	"version": "0.4.3",
 	"description": "Extension of Javascript Promises to provide chainable then like syntax for database queries",
 	"homepage": "https://github.com/jnterry/db-connection-promise#readme",
 	"author": "Jamie Terry (https://github.com/jnterry)",
