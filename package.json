@@ -36,7 +36,9 @@
 		"coveralls": "2.13.1",
 		"istanbul": "0.4.5",
 		"mocha": "3.4.2",
-		"require-nocache": "latest"
+		"require-nocache": "latest",
+		"jsdoc" : "3.5.5",
+		"minami" : "1.2.3"
 	},
 	"peerDependencies": {}
 }

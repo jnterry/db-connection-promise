@@ -8,3 +8,6 @@
 
 # Ignore coverage report
 *coverage/*
+
+# Ignore generated documentation
+docs/*
