@@ -1,6 +1,6 @@
 # Db Connection Promise
 
-This library provides a class "DbConnectionPromise" which can be used to wrap an [any-db](https://www.npmjs.com/package/any-db) database connection. This object adheres to the Promises/A+ specification, but provides an additional chainable .query() method which behaves in a similar manner to .then().
+This library provides a class "DbConnectionPromise" which adhears to the Promises/A+ specification, but additionally wraps a [any-db](https://www.npmjs.com/package/any-db) database connection. This allows for an additional chainable .query() method which behaves in a similar manner to .then().
 
 This allows for a clean API for querying databases of any sort.
 
@@ -15,16 +15,19 @@ This allows for a clean API for querying databases of any sort.
 Todo before 1.0.0 release
 - Implement Postgres Tests
 - Test using API in real project rather than just in tests ([nano-orm](https://github.com/jnterry/nano-orm))
-- Better documentation
 - Check ConnectionPromise fully meets the Promises/A+ specification
 - Can we wrap other Promise types (eg, javascript native promises)? Should be able to wrap anything that meets Promises/A+ spec
 - Work out the peerDependency vs dependency stuff (see any-db docs)
 - Grep for :TODO: in code
 - Cleanup of code
+- Documentation for close, commit, rollback is confusing - implement as sub classes?
+- Documentation/examples confusing - we import DbConnectionPromise, but really this is the method makeDbConnectionPromise. Maybe change to import dbcp. Then dbcp.wrap(...) or dbcp.getQueryableType(...), etc.
 
 ## Usage
 
 ```javascript
+let DbConnectionPromise = require('db-connection-promise');
+
 let conn = AnyDb.createConnection({ adapter: 'sqlite3'});
 let dbh = DbConnectionPromise(conn);
 

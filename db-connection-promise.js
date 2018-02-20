@@ -1,9 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////
 ///                    Part of db-connection-promise                     ///
 ////////////////////////////////////////////////////////////////////////////
-/// \file db-connection-promise.js
-/// \author Jamie Terry
-/// \date 2017/07/28
 /// \brief Main file for db-connection-promise, wraps the any-db library to
 /// create a class which behaves as a promise, but with additional methods
 /// to access a database
@@ -14,6 +11,18 @@
 let Q        = require('q');
 let begin_tx = require('any-db-transaction');
 let AnyDb    = require('any-db');
+
+/**
+ * @typedef {Object} QueryableType
+ *
+ * @property {string} type - The type of the underlying any-db queryable,
+ * one of: "connection", "pool", "transaction" or null if type cannot
+ * be determined
+ *
+ * @property {string} adapter - Name of the database adapter used by the
+ * underlying any-db queryable, for example "mysql", "sqlite3", etc. Will
+ * be set to null if the adapter cannot be determined
+ */
 
 function _doCloseConnection(dbh){
 	let defer = Q.defer();
@@ -45,6 +54,20 @@ function _doCloseConnection(dbh){
 	return defer.promise;
 }
 
+/**
+ * Creates a new DbConnectionPromise. Protected method - use
+ * {@link makeDbConnectionPromise }
+ *
+ * @constructor
+ * @protected
+ *
+ * @param {Object} queryable  Queryable object
+ * @param {Queryable} queryable.it Any object which has a .query method which
+ * behaves as per the any-db specification
+ * @param {Promise} promise  The promise to wrap, further operations will be
+ * chained onto the end of this
+ *
+ */
 function DbConnectionPromise(queryable, promise){
 	this._promise   = promise;
 
@@ -61,6 +84,18 @@ function DbConnectionPromise(queryable, promise){
 	}
 };
 
+/**
+ * Executes a SQL query against the database
+ *
+ * @param {String} query - SQL statement(s) to execute. May include ? for
+ * bound parameters which will be escaped and filled in by values in the
+ * params array
+ * @param {Array} params - Array of values to use as the bound parameters
+ * in the SQL statement
+ *
+ * @return Promise which either resolves to the result of the query, or is
+ * rejected if an error occurs while executing the query
+ */
 DbConnectionPromise.prototype.query = function(){
 	let args = arguments; // capture arguments to function
 	return new DbConnectionPromise(this, this._promise.then(() => {
@@ -68,27 +103,80 @@ DbConnectionPromise.prototype.query = function(){
 	}));
 };
 
-
 // :TODO: can we generically generate these methods for all methods
 // attached to a Q promise?
-DbConnectionPromise.prototype.fail = function(){
-	return new DbConnectionPromise(this, this._promise.fail(...arguments));
-};
-DbConnectionPromise.prototype.catch = DbConnectionPromise.prototype.fail;
 
+
+/**
+ * Chainable method which is called should the promise be resolved.
+ * Behaves as per the Promise/A+ specification
+ */
 DbConnectionPromise.prototype.then = function(){
 	return new DbConnectionPromise(this, this._promise.then(...arguments));
 };
 
+/**
+ * Chainable method which is called should the promise be rejected.
+ * Behaves as Q's fail method
+ */
+DbConnectionPromise.prototype.fail = function(){
+	return new DbConnectionPromise(this, this._promise.fail(...arguments));
+};
+/**
+ * Chainable method which is called should the promise be rejected.
+ * Behaves as Q's fail method
+ */
+DbConnectionPromise.prototype.catch = DbConnectionPromise.prototype.fail;
+
+/**
+ * Chainable method which is called at the end of a promise chain regardless of
+ * whether the promise is resolved or rejected.
+ * Behaves as per Q's finally method
+ */
 DbConnectionPromise.prototype.finally = function(){
 	return new DbConnectionPromise(this, this._promise.finally(...arguments));
 };
+/**
+ * Chainable method which is called at the end of a promise chain regardless of
+ * whether the promise is resolved or rejected
+ * Behaves as per Q's fin method
+ */
 DbConnectionPromise.prototype.fin = DbConnectionPromise.prototype.finally;
 
+/**
+ * Chainable method which is to be called as the last step of a promise chain.
+ * Any unhandled errors will be propogated out.
+ * Behaves as per Q's done function
+ */
 DbConnectionPromise.prototype.done = function(){
 	return this._promise.done(...arguments);
 };
 
+/**
+ * @typedef {function} TransactionOperations
+ *
+ * @param tx - A DbConnectionPromise which will perform operations within
+ * the context of the created transaction
+ *
+ * @return {Promise} Promise which will be resolved or rejected once all
+ * operations that should be executed within the context of the transaction
+ * are complete. Should .commit or .rollback not be called on the transaction
+ * object `tx` the transaction will be committed if this function returns a
+ * promise which resolves, but will be rolled back if this function returns a
+ * promise which is rejected.
+ */
+
+/**
+ * Begins a new transaction and executes a sequence of operations within
+ * that transaction. Note that transactions may be nested
+ *
+ * @param {TransactionOperations} operations - Series of operations to
+ * perform within the context of the database transaction
+ *
+ * @return {Promise} Promise which will be resolved or rejected only after
+ * the transaction completes. Will be resolved with the value returned by
+ * operations.
+ */
 DbConnectionPromise.prototype.transaction = function(operations){
 	return new DbConnectionPromise(this,
 		this._promise.then(() => {
@@ -133,14 +221,10 @@ DbConnectionPromise.prototype.transaction = function(operations){
 	);
 };
 
-/////////////////////////////////////////////////////////////////////
-/// \brief Determines the type of a queryable
-/// \return object of following form:
-/// { type    : "connection" | "pool" | "transaction" | null,
-///   adapter : "mysql" | "sqlite3" | ... | null,
-/// }
-/// null values will be used when the type cannot be determined
-/////////////////////////////////////////////////////////////////////
+/**
+ * Determines the type of a queryable
+ * @return {QueryableType} Object detailing the type of the queryable
+ */
 function getQueryableType(queryable) {
 	let result = { type: null, adapter: null };
 
@@ -169,14 +253,17 @@ function getQueryableType(queryable) {
 	return result;
 };
 
-/////////////////////////////////////////////////////////////////////
-/// \brief Method version of getQueryableType that operates
-/// on the queryable of this DbConnectionPromise
-/// This is a chain operator that should be inserted in a list
-/// of promise like operations, return value can be accessed by following with
-/// a then. Eg:
-/// dbh.getQueryableType().then((type) => { /* ... */ });
-/////////////////////////////////////////////////////////////////////
+/**
+ *  Method version of {@link getQueryableType } that operates on the queryable of this
+ * {@link DbConnectionPromise }
+ *
+ * This is a chain operator that should be inserted in a list of promise like
+ * operations. The return value can be accessed by following with a then.
+ *
+ * @returns {Promise} Promise which will resolve either to a
+ * {@link QueryableType } detailing the type of the wrapped queryable, or
+ * which will be rejected on error
+ */
 DbConnectionPromise.prototype.getQueryableType = function() {
 	this._promise = this._promise.then(() => {
 		return getQueryableType(this._queryable.it);
@@ -184,6 +271,62 @@ DbConnectionPromise.prototype.getQueryableType = function() {
 	return this;
 };
 
+/**
+ * Closes the connection to the database, after which no further database
+ * operations may be performed, although the returned promise may continue
+ * to be used.
+ * This method will only be attached to the DbConnectionPromise if the type of
+ * the wrapped queryable is a connection or pool. Otherwise use one of the
+ * {@link DbConnectionPromise.prototype.commit }
+ * or {@link DbConnectionPromise.prototype.rollback } methods
+ *
+ * @method DbConnectionPromise.prototype.close
+ *
+ * @return {Promise} Promise which will be resolved or rejected after all
+ * outstanding operations are completed, and the database connection is closed
+ */
+// This method is attached dynamically within makeDbConnectionPromise
+
+/**
+ * Commits the side effects of a transaction to the database
+ *
+ * This method will only be attached to the DbConnectionPromise if the type of
+ * the wrapped queryable is a transaction. Otherwise use
+ * {@link DbConnectionPromise.prototype.close }
+ *
+ * @method DbConnectionPromise.prototype.commit
+ *
+ * @return {Promise} Promise which will be resolved or rejected after all
+ * outstanding operations within the transaction are completed, and the
+ * results have been committed to the database
+ */
+// This method is attached dynamically within makeDbConnectionPromise
+
+/**
+ * Rolls back any side effects that have occurred within some transaction.
+ *
+ * This method will only be attached to the DbConnectionPromise if the type of
+ * the wrapped queryable is a transaction. Otherwise use
+ * {@link DbConnectionPromise.prototype.close }
+ *
+ * @method DbConnectionPromise.prototype.rollback
+ *
+ * @return {Promise} Promise which will be resolved or rejected after all
+ * outstanding operations within the transaction are completed, and the
+ * results have been rolledback
+ */
+// This method is attached dynamically within makeDbConnectionPromise
+
+/**
+ * Creates a new DbConnectionPromise
+ *
+ * @param {Queryable} queryable - Any object with a .query() method which
+ * adheres to the specification of any-db, usually an any-db connection, pool
+ * or transaction.
+ *
+ * @return {DbConnectionPromise} Created DbConnectionPromise instance wrapping
+ * the specified query.
+ */
 function makeDbConnectionPromise(queryable){
 	let type = getQueryableType(queryable);
 
