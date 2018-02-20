@@ -1,3 +1,5 @@
+* Tue Feb 20 2018 Jamie Terry <jamie-terry@outlook.com> 0.4.4
+  - Add jsdoc style documentation
 * Mon Feb 05 2018 Jamie Terry <jamie-terry@outlook.com> 0.4.3
   - Don't close connection as part of done()
 * Mon Jan 27 2018 Jamie Terry <jamie-terry@outlook.com> 0.4.2
