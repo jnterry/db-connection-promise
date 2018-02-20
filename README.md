@@ -65,3 +65,8 @@ Theoretically all any-db-XXX adaptors conform to the same interface, and so sinc
 
 - [any-db-sqlite3](https://www.npmjs.com/package/any-db-sqlite3)
 - [any-db-mysql](https://www.npmjs.com/package/any-db-mysql)
+
+## Installation
+
+- Add db-connection-promise to your dependencies in package.json
+- Install the adapter for the database you are planning to use. For example, any-db-sqlite3 or any-db-mysql
