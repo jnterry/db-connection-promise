@@ -32,13 +32,14 @@
 	"devDependencies": {
 		"any-db-mysql": "2.1.2",
 		"any-db-sqlite3": "2.1.4",
+		"sqlite3": "4.0.2",
 		"chai": "4.1.0",
-		"coveralls": "2.13.1",
+		"coveralls": "3.0.2",
 		"istanbul": "0.4.5",
-		"mocha": "3.4.2",
+		"mocha": "5.2.0",
 		"require-nocache": "latest",
-		"jsdoc" : "3.5.5",
-		"minami" : "1.2.3"
+		"jsdoc": "3.5.5",
+		"minami": "1.2.3"
 	},
 	"peerDependencies": {}
 }
